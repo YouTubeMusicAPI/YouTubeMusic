@@ -1,2 +1,2 @@
-from .YtSearche import Search
+from .YtSearch import Search
 from .Models import YouTubeResult
