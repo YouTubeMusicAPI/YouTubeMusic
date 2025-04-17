@@ -1,10 +1,10 @@
 import asyncio
-from YouTubeMusic.YtSearch import Search
+from YouTubeMusic import Search
 
-async def main():
+async def test():
     query = input("🔍 Enter song or video search: ")
     results = await Search(query)
-    for r in results:
-        print(f"{r.title} -> {r.url}")
+    for res in results:
+        print(f"🎵 {res.title} → {res.url}")
 
-asyncio.run(main())
+asyncio.run(test())
