@@ -22,7 +22,8 @@ def parse_results(html: str):
     soup = BeautifulSoup(html, 'html.parser')
     results = []
  
-    for a_tag in soup.find_all('a', class_='result__a'):         title = a_tag.get_text()
+    for a_tag in soup.find_all('a', class_='result__a'):         
+    title = a_tag.get_text()
         url = a_tag.get('href')
  
         if "youtube.com/watch" in url:
