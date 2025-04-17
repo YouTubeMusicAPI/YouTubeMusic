@@ -1,9 +1,17 @@
 [build-system]
-requires = ["setuptools>=42", "wheel"]
+requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools.packages.find]
-where = ["YouTubeMusic"]
+[project]
+name = "YouTubeMusic"
+version = "1.2.1"
+description = "Fast YouTube Music Search with DuckDuckGo"
+authors = [
+  { name="ABHISHEK THAKUR", email="abhishekbanshiwal2005@gmail.com" }
+]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["aiohttp", "beautifulsoup4"]
 
-[tool.setuptools]
-packages = ["YouTubeMusic"]
+[project.scripts]
+ytmusic = "cli:main"
