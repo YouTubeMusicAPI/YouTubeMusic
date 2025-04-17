@@ -1,10 +1,13 @@
-# YouTube Music API Search with DuckDuckGo
+# YouTubeMusic 🔥
+A blazing fast YouTube music search module using DuckDuckGo scraping.
 
-This package allows you to quickly search for YouTube music videos using DuckDuckGo and scrape the results. It uses **asynchronous requests** for fast performance.
+## Features
 
-## Installation
+- No YouTube API needed ✅
+- Fast + lightweight async search engine ⚡
+- Perfect for Telegram bots, CLI tools, and more 🎧
 
-To install the package, run:
+## Install
 
 ```bash
-pip install YouTubeMusicAPI
+pip install YouTubeMusic
