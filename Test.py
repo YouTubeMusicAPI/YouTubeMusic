@@ -1,10 +1,9 @@
+from YouTubeMusic.YtSearch import Search
 import asyncio
-from YouTubeMusic import Search
 
-async def test():
-    query = input("🔍 Enter song or video search: ")
-    results = await Search(query)
+async def run():
+    results = await Search("Alone Alan Walker")
     for res in results:
-        print(f"🎵 {res.title} → {res.url}")
+        print(res.title, res.url)
 
-asyncio.run(test())
+asyncio.run(run())
