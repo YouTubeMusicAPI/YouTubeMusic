@@ -11,9 +11,10 @@ setup(
         "aiohttp",
         "beautifulsoup4",
     ],
-    entry_points={
-        'console_scripts': [
-            '###',
-        ],
-    },
+    "console_scripts": [
+    "fastyt=cli:main",
+    "youtube=cli:main",
+    "ytmusic=cli:main",
+    "abhimusic=cli:main"
+],
 )
