@@ -1,7 +1,6 @@
 import aiohttp
 from bs4 import BeautifulSoup
 from .Models import YouTubeResult
-import asyncio
 
 
 async def search_duckduckgo(query: str):
@@ -17,7 +16,7 @@ async def search_duckduckgo(query: str):
             return html
 
 
-def parse_results(html: str):
+def parse_results(html: str, limit: int = 1):
     soup = BeautifulSoup(html, 'html.parser')
     results = []
 
@@ -26,11 +25,15 @@ def parse_results(html: str):
         url = a_tag.get('href')
 
         if "youtube.com/watch" in url:
-            results.append(YouTubeResult(title=title, url=f"https://www.youtube.com{url}"))
-    
+            full_url = url if url.startswith("http") else f"https://www.youtube.com{url}"
+            results.append(YouTubeResult(title=title, url=full_url))
+
+        if len(results) >= limit:
+            break
+
     return results
 
 
-async def Search(query: str):
+async def Search(query: str, limit: int = 1):
     html = await search_duckduckgo(query)
-    return parse_results(html)
+    return parse_results(html, limit=limit)
