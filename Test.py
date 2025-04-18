@@ -6,7 +6,7 @@ async def main():
     limit = 5  # You can change this to any number to limit the results
 
     print(f"Searching YouTube for: {query}")
-    results = await Search(query, limit)
+    results = await Search(query, limit=1)
 
     if results:
         print(f"\nFound {len(results)} result(s):\n")
