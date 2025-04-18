@@ -7,7 +7,7 @@ YOUTUBE_API_KEY = os.getenv("AIzaSyCkV9TrdPtkYa6P20fnlyB4C2HDQLr3g_I") or "AIzaS
 
 YOUTUBE_SEARCH_URL = "https://www.googleapis.com/youtube/v3/search"
 
-async def Search(query: str, limit: int = 100):
+async def Search(query: str, limit: int = 1):
     params = {
         "part": "snippet",
         "q": query,
