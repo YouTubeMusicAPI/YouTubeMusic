@@ -32,7 +32,7 @@ def extract_artist_from_title(title: str, channel_name: str) -> str:
         return match.group(2).strip()
     return channel_name
 
-async def search_youtube(query: str, limit: int = 1):
+async def Search(query: str, limit: int = 1):
     search_params = {
         "part": "snippet",
         "q": query,
