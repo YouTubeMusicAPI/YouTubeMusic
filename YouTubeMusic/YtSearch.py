@@ -11,7 +11,7 @@ HEADERS = {
     )
 }
 
-async def search_youtube(query: str, limit: int = 1):
+async def Search(query: str, limit: int = 1):
     url = BASE_URL + query.replace(" ", "+")
     print(f"Searching: {url}")
 
