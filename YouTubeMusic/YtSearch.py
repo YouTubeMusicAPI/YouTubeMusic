@@ -1,46 +1,34 @@
+# YtApiSearch.py
 import httpx
-from bs4 import BeautifulSoup
-import urllib.parse
+import os
 
-BASE_URL = "https://html.duckduckgo.com/html/"
-HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/120.0.0.0 Safari/537.36"
-    ),
-}
+# Replace this with your actual API key
+YOUTUBE_API_KEY = os.getenv("AIzaSyCkV9TrdPtkYa6P20fnlyB4C2HDQLr3g_I") or "AIzaSyCkV9TrdPtkYa6P20fnlyB4C2HDQLr3g_I"
 
-async def Search(query: str, limit: int = 5):
-    query += " site:youtube.com"
-    url = BASE_URL + "?q=" + urllib.parse.quote_plus(query)
-    print(f"Searching DuckDuckGo: {url}")
+YOUTUBE_SEARCH_URL = "https://www.googleapis.com/youtube/v3/search"
 
-    try:
-        async with httpx.AsyncClient(timeout=10, headers=HEADERS) as client:
-            r = await client.get(url)
-            print("Status Code:", r.status_code)
-            if r.status_code != 200:
-                print("Error: Status code", r.status_code)
-                return []
+async def search_youtube(query: str, limit: int = 1):
+    params = {
+        "part": "snippet",
+        "q": query,
+        "maxResults": limit,
+        "type": "video",
+        "key": YOUTUBE_API_KEY,
+    }
 
-            soup = BeautifulSoup(r.text, "html.parser")
-            results = []
+    async with httpx.AsyncClient(timeout=10) as client:
+        response = await client.get(YOUTUBE_SEARCH_URL, params=params)
+        if response.status_code != 200:
+            print("Error:", response.status_code, response.text)
+            return []
 
-            for link in soup.select(".result__a"):
-                href = link.get("href")
-                if "youtube.com/watch" in href:
-                    results.append({
-                        "title": link.get_text(strip=True),
-                        "url": href
-                    })
-                if len(results) >= limit:
-                    break
+        data = response.json()
+        results = []
 
-            if not results:
-                print("No results found.")
-            return results
+        for item in data.get("items", []):
+            video_id = item["id"]["videoId"]
+            title = item["snippet"]["title"]
+            url = f"https://www.youtube.com/watch?v={video_id}"
+            results.append({"title": title, "url": url})
 
-    except Exception as e:
-        print("Request error:", e)
-        return []
+        return results
