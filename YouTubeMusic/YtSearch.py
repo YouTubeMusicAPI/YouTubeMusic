@@ -1,6 +1,7 @@
 import httpx
 import re
 import json
+from .Models import Video
 
 BASE_URL = "https://www.youtube.com/results?search_query="
 HEADERS = {
@@ -18,6 +19,7 @@ async def Search(query: str, limit: int = 1):
     async with httpx.AsyncClient(timeout=5) as client:
         r = await client.get(url, headers=HEADERS)
         print("Status Code:", r.status_code)
+
         match = re.search(r"var ytInitialData = ({.*?});", r.text) or \
                 re.search(r'window\["ytInitialData"\]\s*=\s*({.*?});', r.text)
 
@@ -47,7 +49,8 @@ async def Search(query: str, limit: int = 1):
                     continue
 
                 url = f"https://www.youtube.com/watch?v={video_id}"
-                results.append({"title": title, "url": url})
+                video = Video(title=title, url=url)
+                results.append(video)
                 if len(results) >= limit:
                     break
 
