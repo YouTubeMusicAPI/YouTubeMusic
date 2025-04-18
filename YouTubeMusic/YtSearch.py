@@ -2,7 +2,7 @@ import httpx
 import os
 from .Models import format_dur, process_video
 
-YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY") or "YOUR_YOUTUBE_API_KEY"
+YOUTUBE_API_KEY = os.getenv("AIzaSyCkV9TrdPtkYa6P20fnlyB4C2HDQLr3g_I") or "AIzaSyCkV9TrdPtkYa6P20fnlyB4C2HDQLr3g_I"
 YOUTUBE_SEARCH_URL = "https://www.googleapis.com/youtube/v3/search"
 
 async def search_youtube(query: str, limit: int = 1):
