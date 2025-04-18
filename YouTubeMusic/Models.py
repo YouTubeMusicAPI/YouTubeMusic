@@ -1,39 +1,34 @@
-def process_video(item):
+from .Utils import parse_dur
+
+def format_dur(duration_str):
+    return parse_dur(duration_str)
+
+def process_video(item, details):
     try:
         video_id = item["id"]["videoId"]
         title = item["snippet"]["title"]
+        channel = item["snippet"]["channelTitle"]
         url = f"https://www.youtube.com/watch?v={video_id}"
-        duration = item["snippet"].get("duration", "N/A")
-        views = item["statistics"].get("viewCount", "N/A")
         thumbnail = item["snippet"]["thumbnails"]["high"]["url"]
 
-        artist_name = extract_artist(title)
-        channel_name = item["snippet"]["channelTitle"]
+        duration = details.get("contentDetails", {}).get("duration", "N/A")
+        views = details.get("statistics", {}).get("viewCount", "N/A")
+
+        artist = extract_artist(title) or channel
 
         return {
             "title": title,
             "url": url,
-            "artist_name": artist_name,
-            "channel_name": channel_name,
+            "artist_name": artist,
+            "channel_name": channel,
             "views": views,
             "duration": format_dur(duration),
             "thumbnail": thumbnail,
         }
-
     except Exception as e:
-        print(f"Error processing video item: {e}")
+        print("Error processing video item:", e)
         return None
 
-
-def format_dur(duration: str):
-    try:
-        seconds = int(duration)
-        hours = seconds // 3600
-        minutes = (seconds % 3600) // 60
-        seconds = seconds % 60
-        return f"{hours:02}:{minutes:02}:{seconds:02}"
-    except ValueError:
-        return "Invalid Duration"
 
 
 def extract_artist(title: str):
