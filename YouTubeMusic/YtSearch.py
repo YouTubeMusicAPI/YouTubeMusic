@@ -1,38 +1,57 @@
-import aiohttp
-from bs4 import BeautifulSoup
-from .Models import YouTubeResult
-import asyncio
+import httpx
+import re
+import json
 
+BASE_URL = "https://www.youtube.com/results?search_query="
+HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/120.0.0.0 Safari/537.36"
+    )
+}
 
-async def search_duckduckgo(query: str):
-    search_url = f"https://duckduckgo.com/html/?q=site:youtube.com+{query}"
-    
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-    }
+async def Search(query: str, limit: int = 1):
+    url = BASE_URL + query.replace(" ", "+")
+    print(f"Searching: {url}")
 
-    async with aiohttp.ClientSession() as session:
-        async with session.get(search_url, headers=headers) as response:
-            html = await response.text()
-            return html
+    async with httpx.AsyncClient(timeout=5) as client:
+        r = await client.get(url, headers=HEADERS)
+        print("Status Code:", r.status_code)
+        match = re.search(r"var ytInitialData = ({.*?});", r.text) or \
+                re.search(r'window\["ytInitialData"\]\s*=\s*({.*?});', r.text)
 
+        if not match:
+            print("ytInitialData not found in response")
+            return []
 
-def parse_results(html: str):
-    soup = BeautifulSoup(html, 'html.parser')
-    results = []
+        try:
+            data = json.loads(match.group(1))
+        except Exception as e:
+            print("JSON parsing error:", e)
+            return []
 
-    for a_tag in soup.find_all('a', class_='result__a'):
-        title = a_tag.get_text(strip=True)
-        url = a_tag.get('href')
+        try:
+            results = []
+            videos = data["contents"]["twoColumnSearchResultsRenderer"]["primaryContents"]\
+                    ["sectionListRenderer"]["contents"][0]["itemSectionRenderer"]["contents"]
 
-        if "youtube.com/watch" in url:
-            # Ensure full URL path
-            full_url = url if url.startswith("http") else f"https://www.youtube.com{url}"
-            results.append(YouTubeResult(title=title, url=full_url))
+            for item in videos:
+                video_data = item.get("videoRenderer")
+                if not video_data:
+                    continue
 
-    return results
+                title = video_data.get("title", {}).get("runs", [{}])[0].get("text", "Unknown Title")
+                video_id = video_data.get("videoId")
+                if not video_id:
+                    continue
 
+                url = f"https://www.youtube.com/watch?v={video_id}"
+                results.append({"title": title, "url": url})
+                if len(results) >= limit:
+                    break
 
-async def Search(query: str):
-    html = await search_duckduckgo(query)
-    return parse_results(html)
+            return results
+        except Exception as e:
+            print("Parsing error:", e)
+            return []
