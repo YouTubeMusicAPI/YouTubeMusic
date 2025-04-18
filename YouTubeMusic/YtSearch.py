@@ -1,6 +1,8 @@
+# YtSearch.py
 import httpx
 import re
 import json
+from YouTubeMusic.Models import format_video_result, get_video_data_from_json  # Importing helper functions
 
 BASE_URL = "https://www.youtube.com/results?search_query="
 HEADERS = {
@@ -39,23 +41,12 @@ async def Search(query: str, limit: int = 1):
                 return []
 
             try:
+                video_data = get_video_data_from_json(data)  # Use helper function to extract video data
+
                 results = []
-                # Navigate to the video results section
-                videos = data["contents"]["twoColumnSearchResultsRenderer"]["primaryContents"]\
-                    ["sectionListRenderer"]["contents"][0]["itemSectionRenderer"]["contents"]
-
-                for item in videos:
-                    video_data = item.get("videoRenderer")
-                    if not video_data:
-                        continue
-
-                    title = video_data.get("title", {}).get("runs", [{}])[0].get("text", "Unknown Title")
-                    video_id = video_data.get("videoId")
-                    if not video_id:
-                        continue
-
-                    url = f"https://www.youtube.com/watch?v={video_id}"
-                    results.append({"title": title, "url": url})
+                for video in video_data:
+                    formatted_result = format_video_result(video)  # Format the video result
+                    results.append(formatted_result)
                     if len(results) >= limit:
                         break
 
@@ -67,4 +58,3 @@ async def Search(query: str, limit: int = 1):
     except httpx.RequestError as e:
         print(f"Request error: {e}")
         return []
-
