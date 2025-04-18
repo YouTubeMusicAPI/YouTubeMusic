@@ -1,5 +1,5 @@
 import asyncio
-from Yt.Search import Search
+from YouTubeMusic.Search import Search
 
 async def main():
     query = input("Enter search query: ")
