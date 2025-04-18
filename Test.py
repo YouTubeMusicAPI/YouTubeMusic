@@ -1,21 +1,10 @@
-import sys
-import asyncio
+import pytest
 from YouTubeMusic.YtSearch import Search
 
-def main():
-    if len(sys.argv) < 2:
-        print("Please provide a search query.")
-        return
-
-    query = sys.argv[1]
-    results = asyncio.run(Search(query))
-
-    if results:
-        print("Found Videos:")
-        for video in results:
-            print(f"Title: {video.title}\nURL: {video.url}")
-    else:
-        print("No results found.")
-
-if __name__ == "__main__":
-    main()
+@pytest.mark.asyncio
+async def test_search_youtube():
+    query = "Chanda Sitare"
+    results = await Search(query)
+    assert len(results) > 0
+    assert "title" in results[0].to_dict()
+    assert "url" in results[0].to_dict()
