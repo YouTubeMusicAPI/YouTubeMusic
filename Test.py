@@ -1,10 +1,16 @@
-import pytest
-from YouTubeMusic.YtSearch import Search
+import asyncio
+from Yt.Search import Search
 
-@pytest.mark.asyncio
-async def test_search_youtube():
-    query = "Chanda Sitare"
+async def main():
+    query = input("Enter search query: ")
     results = await Search(query)
-    assert len(results) > 0
-    assert "title" in results[0].to_dict()
-    assert "url" in results[0].to_dict()
+    if not results:
+        print("No results found.")
+        return
+
+    print("\nResults:")
+    for res in results:
+        print(f"🎵 {res['title']}\n🔗 {res['url']}\n")
+
+if __name__ == "__main__":
+    asyncio.run(main())
