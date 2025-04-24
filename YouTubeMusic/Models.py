@@ -1,5 +1,9 @@
-from .Utils import parse_dur
+from .Utils import parse_dur, format_ind
 
+
+def format(n):
+    return format_ind(n)
+    
 def format_dur(duration_str):
     return parse_dur(duration_str)
 
@@ -21,7 +25,7 @@ def process_video(item, details):
             "url": url,
             "artist_name": artist,
             "channel_name": channel,
-            "views": views,
+            "views": format(views),
             "duration": format_dur(duration),
             "thumbnail": thumbnail,
         }
