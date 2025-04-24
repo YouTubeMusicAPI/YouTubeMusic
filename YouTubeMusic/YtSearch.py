@@ -2,7 +2,7 @@ import httpx
 import os
 from .Models import format_dur, process_video
 
-YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY") or "AIzaSyCkV9TrdPtkYa6P20fnlyB4C2HDQLr3g_I"
+YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY") or "AIzaSyB7CWhyGOe18M2I0ciXcZBQY-Bx6_Yj0lQ"
 
 SEARCH_URL = "https://www.googleapis.com/youtube/v3/search"
 DETAILS_URL = "https://www.googleapis.com/youtube/v3/videos"
