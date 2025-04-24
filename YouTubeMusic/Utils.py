@@ -13,3 +13,14 @@ def parse_dur(duration):
     if h:
         return f"{h}:{m:02d}:{s:02d}"
     return f"{m}:{s:02d}"
+
+def format_ind(n):
+    n = int(n)
+    if n >= 10**7:
+        return f"{n/10**7:.1f} Crore"
+    elif n >= 10**5:
+        return f"{n/10**5:.1f} Lakh"
+    elif n >= 10**3:
+        return f"{n/10**3:.1f}K"
+    return str(n)
+    
