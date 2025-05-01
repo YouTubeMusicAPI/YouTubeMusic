@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "YouTubeMusic"
-version = "4.0.0"
+version = "4.1.0"
 description = "A YouTube Music Search Package With Artist, Channel, and Video Details"
 authors = [
   { name="ABHISHEK THAKUR", email="abhishekbanshiwal2005@gmail.com" }
