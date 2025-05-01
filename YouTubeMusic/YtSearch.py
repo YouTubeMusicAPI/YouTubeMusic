@@ -1,20 +1,31 @@
 import httpx
 import os
+import random
 from .Models import format_dur, process_video
 
-YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY") or "AIzaSyCkV9TrdPtkYa6P20fnlyB4C2HDQLr3g_I"
+YOUTUBE_API_KEY = [
+    "AIzaSyB7CWhyGOe18M2I0ciXcZBQY-Bx6_Yj0lQ",
+    "AIzaSyBJ52p5HOl8XTI-i_iKUpk5iPr0LVulp1E",
+    "AIzaSyBllgwdS_H8eMeDL6CdifRbbq2F5LYp1mM",
+    "AIzaSyC_sd7Hxhhzq_dIuxK5SxKnHr2HlPsUsY0",
+    os.getenv("YOUTUBE_API_KEY") ]
 
 SEARCH_URL = "https://www.googleapis.com/youtube/v3/search"
 DETAILS_URL = "https://www.googleapis.com/youtube/v3/videos"
 
+def get_random_key():
+    return random.choice([key for key in YOUTUBE_API_KEY if key])
+    
 async def Search(query: str, limit: int = 1):
     async with httpx.AsyncClient(timeout=10) as client:
+        api_key = get_random_key()
+ 
         search_params = {
             "part": "snippet",
             "q": query,
             "maxResults": limit,
             "type": "video",
-            "key": YOUTUBE_API_KEY,
+            "key": api_key,
         }
 
         search_res = await client.get(SEARCH_URL, params=search_params)
@@ -28,10 +39,12 @@ async def Search(query: str, limit: int = 1):
         if not video_ids:
             return []
 
+        api_key = get_random_key()
+
         details_params = {
             "part": "contentDetails,statistics",
             "id": ",".join(video_ids),
-            "key": YOUTUBE_API_KEY,
+            "key": api_key,
         }
 
         detail_res = await client.get(DETAILS_URL, params=details_params)
