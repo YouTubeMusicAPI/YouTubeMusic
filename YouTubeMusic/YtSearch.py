@@ -4,7 +4,6 @@ import random
 from .Models import format_dur, process_video
 
 YOUTUBE_API_KEY = [
-    "AIzaSyB7CWhyGOe18M2I0ciXcZBQY-Bx6_Yj0lQ",
     "AIzaSyBJ52p5HOl8XTI-i_iKUpk5iPr0LVulp1E",
     "AIzaSyBllgwdS_H8eMeDL6CdifRbbq2F5LYp1mM",
     "AIzaSyC_sd7Hxhhzq_dIuxK5SxKnHr2HlPsUsY0",
