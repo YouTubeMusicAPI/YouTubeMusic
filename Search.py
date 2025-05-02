@@ -35,4 +35,5 @@ async def main():
       print(f"   Channel: {song['channel']}")
       print(f"   URL: {song['url']}\n")
 
-asyncio.run((main))
+if __name__ == "__main__":
+    asyncio.run((main))
