@@ -4,20 +4,20 @@ import re
 import json
 
 def fast_search_youtube(query: str, max_results: int = 5):
-    search_url = f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}"
+    url = f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}"
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+        "User-Agent": "Mozilla/5.0"
     }
-    response = httpx.get(search_url, headers=headers, timeout=5)
 
-    # Extract initial JSON data from the HTML
-    match = re.search(r'var ytInitialData = ({.*?});</script>', response.text)
+    response = httpx.get(url, headers=headers, timeout=5)
+
+    match = re.search(r"var ytInitialData = ({.*?});</script>", response.text)
     if not match:
         return []
 
     data = json.loads(match.group(1))
-
     results = []
+
     try:
         videos = data["contents"]["twoColumnSearchResultsRenderer"]["primaryContents"]\
             ["sectionListRenderer"]["contents"][0]["itemSectionRenderer"]["contents"]
@@ -26,32 +26,44 @@ def fast_search_youtube(query: str, max_results: int = 5):
             if "videoRenderer" in video:
                 v = video["videoRenderer"]
                 title = v["title"]["runs"][0]["text"]
-                url = "https://www.youtube.com/watch?v=" + v["videoId"]
+                video_id = v["videoId"]
+                url = f"https://www.youtube.com/watch?v={video_id}"
                 duration = v.get("lengthText", {}).get("simpleText", "LIVE")
-                channel = v["ownerText"]["runs"][0]["text"]
+                views = v.get("viewCountText", {}).get("simpleText", "N/A")
+                channel_name = v["ownerText"]["runs"][0]["text"]
+                thumbnail = v["thumbnail"]["thumbnails"][-1]["url"]
+
                 results.append({
                     "title": title,
-                    "url": url,
+                    "artist_name": channel_name,
+                    "channel_name": channel_name,
                     "duration": duration,
-                    "channel": channel
+                    "views": views,
+                    "thumbnail": thumbnail,
+                    "url": url,
                 })
+
                 if len(results) >= max_results:
                     break
 
     except Exception as e:
-        print("Error parsing data:", e)
+        print("Error:", e)
 
     return results
 
 if __name__ == "__main__":
     query = input("Enter song name: ")
-    results = fast_search_youtube(query)
+    results = fast_search_youtube(query, max_results=10)
 
-    for idx, video in enumerate(results, 1):
-        print(f"{idx}. {video['title']} - {video['duration']}")
-        print(f"   Channel: {video['channel']}")
-        print(f"   URL: {video['url']}\n")
-
+    for idx, item in enumerate(results, 1):
+        print(f"\nResult {idx}")
+        print("Title:", item["title"])
+        print("Artist:", item["artist_name"])
+        print("Channel:", item["channel_name"])
+        print("Duration:", item["duration"])
+        print("Views:", item["views"])
+        print("Thumbnail:", item["thumbnail"])
+        print("URL:", item["url"])
 
 if __name__ == "__main__":
     asyncio.run(main())
