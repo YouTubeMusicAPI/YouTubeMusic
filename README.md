@@ -16,7 +16,9 @@ pip install YouTubeMusic
 # Examples
 
 ```bash
-from YouTubeMusic.YtSearch import Search # Search By YouTube Search API
+# Search By YouTube Search API
+from YouTubeMusic.YtSearch import Search
 
-```bash
-from YouTubeMusic.Search import Search # Search Using Httpx And Re
+# Search Using Httpx And Re
+from YouTubeMusic.Search import Search
+```
