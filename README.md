@@ -11,3 +11,13 @@ A blazing fast YouTube music search module using DuckDuckGo scraping.
 
 ```bash
 pip install YouTubeMusic
+
+```bash
+from YouTubeMusic.YtSearch import Search
+
+# Using YouTube Search API
+
+```bash
+from YouTubeMusic.Search import Search
+
+# Using Httpx
