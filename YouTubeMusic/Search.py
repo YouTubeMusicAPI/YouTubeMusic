@@ -1,7 +1,7 @@
 import httpx
 import re
 import json
-from .Utils import parse_duration, format_views
+from .Utils import parse_dur, format_views
 
 def Search(query: str, max_results: int = 1):
     url = f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}"
@@ -38,7 +38,7 @@ def Search(query: str, max_results: int = 1):
                     "artist_name": channel_name,
                     "channel_name": channel_name,
                     "views": format_views(views),
-                    "duration": parse_duration(duration),
+                    "duration": parse_dur(duration),
                     "thumbnail": thumbnail,
                     "url": url,
                 })
