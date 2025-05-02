@@ -1,8 +1,14 @@
-import asyncio
 import httpx
 import re
 import json
+from .Utils import parse_dur, format_ind
 
+def format(n):
+    return format_ind(n)
+    
+def format_dur(duration_str):
+    return parse_dur(duration_str)
+    
 def Search(query: str, max_results: int = 1):
     url = f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}"
     headers = {
