@@ -24,3 +24,12 @@ def format_ind(n):
         return f"{n/10**3:.1f}K"
     return str(n)
     
+def format_views(views_str):
+    views_cleaned = ''.join(filter(str.isdigit, views_str.replace(' ', '')))
+    if 'M' in views_str:
+        return format_ind(float(views_cleaned) * 10**6)
+    elif 'K' in views_str:
+        return format_ind(float(views_cleaned) * 10**3)
+    elif views_cleaned:
+        return format_ind(views_cleaned)
+    return "N/A"
