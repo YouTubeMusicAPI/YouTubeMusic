@@ -43,8 +43,8 @@ def Search(query: str, max_results: int = 1):
                     "title": title,
                     "artist_name": channel_name,
                     "channel_name": channel_name,
-                    "duration": duration,
-                    "views": views,
+                    "views": format(views),
+                    "duration": format_dur(duration),
                     "thumbnail": thumbnail,
                     "url": url,
                 })
