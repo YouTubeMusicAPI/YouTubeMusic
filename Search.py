@@ -36,4 +36,4 @@ async def main():
       print(f"   URL: {song['url']}\n")
 
 if __name__ == "__main__":
-    asyncio.run((main))
+    asyncio.run(main())
