@@ -3,7 +3,7 @@ import re
 import json
 from .Utils import parse_dur, format_views
 
-def Search(query: str, max_results: int = 1):
+def Search(query: str, limit: int = 1):
     url = f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}"
     headers = {
         "User-Agent": "Mozilla/5.0"
@@ -43,7 +43,7 @@ def Search(query: str, max_results: int = 1):
                     "url": url,
                 })
 
-                if len(results) >= max_results:
+                if len(results) >= limit:
                     break
 
     except Exception as e:
