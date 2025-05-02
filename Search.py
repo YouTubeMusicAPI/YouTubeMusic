@@ -3,7 +3,7 @@ from YouTubeMusic.Search import Search
 
 def main():
     query = input("Enter song name: ")
-    results = Search(query, max_results=10)
+    results = Search(query, limit=3)
 
     for idx, item in enumerate(results, 1):
         print(f"\nResult {idx}")
