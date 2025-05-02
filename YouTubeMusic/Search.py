@@ -3,7 +3,7 @@ import httpx
 import re
 import json
 
-def Search(query: str, max_results: int = 5):
+def Search(query: str, max_results: int = 1):
     url = f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}"
     headers = {
         "User-Agent": "Mozilla/5.0"
