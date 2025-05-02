@@ -51,7 +51,7 @@ def fast_search_youtube(query: str, max_results: int = 5):
 
     return results
 
-if __name__ == "__main__":
+def main():
     query = input("Enter song name: ")
     results = fast_search_youtube(query, max_results=10)
 
