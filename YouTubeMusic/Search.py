@@ -18,12 +18,19 @@ def Search(query: str, limit: int = 1):
             }
 
             response = httpx.get(watch_url, headers=headers, timeout=10)
+
+            # Debugging response
+            print("Response Text:\n", response.text[:1000])  # Print first 1000 characters of the response
+
             match = re.search(r"var ytInitialPlayerResponse = ({.*?});", response.text)
             if not match:
                 return []
 
             data = json.loads(match.group(1))
             video_details = data.get("videoDetails", {})
+
+            # Print to check if data is correctly fetched
+            print("Video Details:", video_details)
 
             return [{
                 "title": video_details.get("title", "Unknown"),
