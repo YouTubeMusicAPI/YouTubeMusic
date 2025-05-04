@@ -12,15 +12,18 @@ def Search(query: str, limit: int = 1):
             return []
 
         video_id = video_id_match.group(1)
-        url = f"https://www.youtube.com/watch?v={video_id}"
-        headers = {"User-Agent": "Mozilla/5.0"}
-        page = httpx.get(url, headers=headers, timeout=10).text
+        watch_url = f"https://www.youtube.com/watch?v={video_id}"
+        headers = {
+            "User-Agent": "Mozilla/5.0"
+        }
 
-        initial_data_match = re.search(r"var ytInitialPlayerResponse = ({.*?});", page)
-        if not initial_data_match:
+
+        response = httpx.get(watch_url, headers=headers, timeout=10)
+        match = re.search(r"var ytInitialPlayerResponse = ({.*?});", response.text)
+        if not match:
             return []
 
-        data = json.loads(initial_data_match.group(1))
+        data = json.loads(match.group(1))
         video_details = data.get("videoDetails", {})
 
         return [{
@@ -30,12 +33,15 @@ def Search(query: str, limit: int = 1):
             "views": format_views(video_details.get("viewCount", "0")),
             "duration": parse_dur(str(video_details.get("lengthSeconds", "0"))),
             "thumbnail": f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg",
-            "url": url,
+            "url": watch_url,
         }]
+        
+    search_url = f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}"
+    headers = {
+        "User-Agent": "Mozilla/5.0"
+    }
 
-    url = f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}"
-    headers = {"User-Agent": "Mozilla/5.0"}
-    response = httpx.get(url, headers=headers, timeout=5)
+    response = httpx.get(search_url, headers=headers, timeout=10)
     match = re.search(r"var ytInitialData = ({.*?});</script>", response.text)
     if not match:
         return []
@@ -44,7 +50,8 @@ def Search(query: str, limit: int = 1):
     results = []
 
     try:
-        videos = data["contents"]["twoColumnSearchResultsRenderer"]["primaryContents"]["sectionListRenderer"]["contents"][0]["itemSectionRenderer"]["contents"]
+        videos = data["contents"]["twoColumnSearchResultsRenderer"]["primaryContents"]\
+            ["sectionListRenderer"]["contents"][0]["itemSectionRenderer"]["contents"]
 
         for video in videos:
             if "videoRenderer" in video:
@@ -53,7 +60,7 @@ def Search(query: str, limit: int = 1):
                 video_id = v["videoId"]
                 url = f"https://www.youtube.com/watch?v={video_id}"
                 duration = v.get("lengthText", {}).get("simpleText", "LIVE")
-                views = v.get("viewCountText", {}).get("simpleText", "N/A")
+                views = v.get("viewCountText", {}).get("simpleText", "0")
                 channel_name = v["ownerText"]["runs"][0]["text"]
                 thumbnail = v["thumbnail"]["thumbnails"][-1]["url"]
 
