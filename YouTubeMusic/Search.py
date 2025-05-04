@@ -12,43 +12,29 @@ def Search(query: str, limit: int = 1):
             return []
 
         video_id = video_id_match.group(1)
-        api_url = f"https://www.youtube.com/watch?v={video_id}"
-        thumbnail_url = f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
-        
-        headers = {
-            "User-Agent": "Mozilla/5.0"
-        }
+        url = f"https://www.youtube.com/watch?v={video_id}"
+        headers = {"User-Agent": "Mozilla/5.0"}
+        page = httpx.get(url, headers=headers, timeout=10).text
 
-        response = httpx.get(api_url, headers=headers, timeout=5)
-        
-        title_match = re.search(r'"title":"(.*?)"', response.text)
-        views_match = re.search(r'"viewCountText":{"simpleText":"(.*?) views"', response.text)
-        duration_match = re.search(r'"lengthText":{"simpleText":"(.*?)"}', response.text)
-        channel_name_match = re.search(r'"authorName":{"simpleText":"(.*?)"}', response.text)
-
-        if title_match and views_match and duration_match and channel_name_match:
-            title = title_match.group(1)
-            views = views_match.group(1)
-            duration = duration_match.group(1)
-            channel_name = channel_name_match.group(1)
-
-            return [{
-                "title": title,
-                "artist_name": channel_name,
-                "channel_name": channel_name,
-                "views": format_views(views),
-                "duration": duration,
-                "thumbnail": thumbnail_url,
-                "url": api_url,
-            }]
-        else:
+        initial_data_match = re.search(r"var ytInitialPlayerResponse = ({.*?});", page)
+        if not initial_data_match:
             return []
 
-    url = f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}"
-    headers = {
-        "User-Agent": "Mozilla/5.0"
-    }
+        data = json.loads(initial_data_match.group(1))
+        video_details = data.get("videoDetails", {})
 
+        return [{
+            "title": video_details.get("title", "Unknown"),
+            "artist_name": video_details.get("author", "Unknown"),
+            "channel_name": video_details.get("author", "Unknown"),
+            "views": format_views(video_details.get("viewCount", "0")),
+            "duration": parse_dur(int(video_details.get("lengthSeconds", 0))),
+            "thumbnail": f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg",
+            "url": url,
+        }]
+
+    url = f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}"
+    headers = {"User-Agent": "Mozilla/5.0"}
     response = httpx.get(url, headers=headers, timeout=5)
     match = re.search(r"var ytInitialData = ({.*?});</script>", response.text)
     if not match:
@@ -58,8 +44,7 @@ def Search(query: str, limit: int = 1):
     results = []
 
     try:
-        videos = data["contents"]["twoColumnSearchResultsRenderer"]["primaryContents"]\
-            ["sectionListRenderer"]["contents"][0]["itemSectionRenderer"]["contents"]
+        videos = data["contents"]["twoColumnSearchResultsRenderer"]["primaryContents"]["sectionListRenderer"]["contents"][0]["itemSectionRenderer"]["contents"]
 
         for video in videos:
             if "videoRenderer" in video:
@@ -89,3 +74,4 @@ def Search(query: str, limit: int = 1):
         print("Error:", e)
 
     return results
+    
