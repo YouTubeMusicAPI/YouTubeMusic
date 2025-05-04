@@ -1,6 +1,6 @@
 import sys
 import asyncio
-from YouTubeMusic.YtSearch import Search
+from YouTubeMusic.Search import Search
 
 def main():
     if len(sys.argv) < 2:
