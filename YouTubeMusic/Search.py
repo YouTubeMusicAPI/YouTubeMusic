@@ -28,7 +28,7 @@ def Search(query: str, limit: int = 1):
             "artist_name": video_details.get("author", "Unknown"),
             "channel_name": video_details.get("author", "Unknown"),
             "views": format_views(video_details.get("viewCount", "0")),
-            "duration": parse_dur(int(video_details.get("lengthSeconds", "0"))),
+            "duration": parse_dur(str(video_details.get("lengthSeconds", "0"))),
             "thumbnail": f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg",
             "url": url,
         }]
