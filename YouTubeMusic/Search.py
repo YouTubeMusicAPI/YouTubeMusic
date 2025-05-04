@@ -14,16 +14,35 @@ def Search(query: str, limit: int = 1):
         video_id = video_id_match.group(1)
         api_url = f"https://www.youtube.com/watch?v={video_id}"
         thumbnail_url = f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
+        
+        headers = {
+            "User-Agent": "Mozilla/5.0"
+        }
 
-        return [{
-            "title": "YouTube Video",
-            "artist_name": "Unknown",
-            "channel_name": "Unknown",
-            "views": "Unknown",
-            "duration": "Unknown",
-            "thumbnail": thumbnail_url,
-            "url": api_url,
-        }]
+        response = httpx.get(api_url, headers=headers, timeout=5)
+        
+        title_match = re.search(r'"title":"(.*?)"', response.text)
+        views_match = re.search(r'"viewCountText":{"simpleText":"(.*?) views"', response.text)
+        duration_match = re.search(r'"lengthText":{"simpleText":"(.*?)"}', response.text)
+        channel_name_match = re.search(r'"authorName":{"simpleText":"(.*?)"}', response.text)
+
+        if title_match and views_match and duration_match and channel_name_match:
+            title = title_match.group(1)
+            views = views_match.group(1)
+            duration = duration_match.group(1)
+            channel_name = channel_name_match.group(1)
+
+            return [{
+                "title": title,
+                "artist_name": channel_name,
+                "channel_name": channel_name,
+                "views": format_views(views),
+                "duration": duration,
+                "thumbnail": thumbnail_url,
+                "url": api_url,
+            }]
+        else:
+            return []
 
     url = f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}"
     headers = {
