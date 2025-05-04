@@ -1,7 +1,7 @@
 import asyncio
 from YouTubeMusic.Search import Search
 
-def main():
+async def main():
     query = input("Enter song name: ")
     results = Search(query, limit=3)
 
