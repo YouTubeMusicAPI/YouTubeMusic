@@ -6,36 +6,36 @@ from .Utils import parse_dur, format_views
 YOUTUBE_VIDEO_REGEX = r'(https?://)?(www\.)?(youtube\.com|youtu\.be)/(watch\?v=)?([a-zA-Z0-9_-]{11})'
 
 def Search(query: str, limit: int = 1):
+    # If the query is a YouTube URL
     if re.match(YOUTUBE_VIDEO_REGEX, query):
         video_id_match = re.search(r"(?:v=|be/)([a-zA-Z0-9_-]{11})", query)
-        if not video_id_match:
-            return []
+        if video_id_match:
+            video_id = video_id_match.group(1)
+            watch_url = f"https://www.youtube.com/watch?v={video_id}"
 
-        video_id = video_id_match.group(1)
-        watch_url = f"https://www.youtube.com/watch?v={video_id}"
-        headers = {
-            "User-Agent": "Mozilla/5.0"
-        }
+            headers = {
+                "User-Agent": "Mozilla/5.0"
+            }
 
+            response = httpx.get(watch_url, headers=headers, timeout=10)
+            match = re.search(r"var ytInitialPlayerResponse = ({.*?});", response.text)
+            if not match:
+                return []
 
-        response = httpx.get(watch_url, headers=headers, timeout=10)
-        match = re.search(r"var ytInitialPlayerResponse = ({.*?});", response.text)
-        if not match:
-            return []
+            data = json.loads(match.group(1))
+            video_details = data.get("videoDetails", {})
 
-        data = json.loads(match.group(1))
-        video_details = data.get("videoDetails", {})
-
-        return [{
-            "title": video_details.get("title", "Unknown"),
-            "artist_name": video_details.get("author", "Unknown"),
-            "channel_name": video_details.get("author", "Unknown"),
-            "views": format_views(video_details.get("viewCount", "0")),
-            "duration": parse_dur(str(video_details.get("lengthSeconds", "0"))),
-            "thumbnail": f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg",
-            "url": watch_url,
-        }]
-        
+            return [{
+                "title": video_details.get("title", "Unknown"),
+                "artist_name": video_details.get("author", "Unknown"),
+                "channel_name": video_details.get("author", "Unknown"),
+                "views": format_views(video_details.get("viewCount", "0")),
+                "duration": parse_dur(str(video_details.get("lengthSeconds", "0"))),
+                "thumbnail": f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg",
+                "url": watch_url,
+            }]
+    
+    # If the query is a name to search
     search_url = f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}"
     headers = {
         "User-Agent": "Mozilla/5.0"
@@ -81,4 +81,3 @@ def Search(query: str, limit: int = 1):
         print("Error:", e)
 
     return results
-    
