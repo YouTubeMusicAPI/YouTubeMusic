@@ -3,14 +3,34 @@ import re
 import json
 from .Utils import parse_dur, format_views
 
+YOUTUBE_VIDEO_REGEX = r'(https?://)?(www\.)?(youtube\.com|youtu\.be)/(watch\?v=)?([a-zA-Z0-9_-]{11})'
+
 def Search(query: str, limit: int = 1):
+    if re.match(YOUTUBE_VIDEO_REGEX, query):
+        video_id_match = re.search(r"(?:v=|be/)([a-zA-Z0-9_-]{11})", query)
+        if not video_id_match:
+            return []
+
+        video_id = video_id_match.group(1)
+        api_url = f"https://www.youtube.com/watch?v={video_id}"
+        thumbnail_url = f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
+
+        return [{
+            "title": "YouTube Video",
+            "artist_name": "Unknown",
+            "channel_name": "Unknown",
+            "views": "Unknown",
+            "duration": "Unknown",
+            "thumbnail": thumbnail_url,
+            "url": api_url,
+        }]
+
     url = f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}"
     headers = {
         "User-Agent": "Mozilla/5.0"
     }
 
     response = httpx.get(url, headers=headers, timeout=5)
-
     match = re.search(r"var ytInitialData = ({.*?});</script>", response.text)
     if not match:
         return []
