@@ -3,46 +3,7 @@ import re
 import json
 from .Utils import parse_dur, format_views
 
-YOUTUBE_VIDEO_REGEX = r'(https?://)?(www\.)?(youtube\.com|youtu\.be)/(watch\?v=)?([a-zA-Z0-9_-]{11})'
-
 def Search(query: str, limit: int = 1):
-    # If the query is a YouTube URL
-    if re.match(YOUTUBE_VIDEO_REGEX, query):
-        video_id_match = re.search(r"(?:v=|be/)([a-zA-Z0-9_-]{11})", query)
-        if video_id_match:
-            video_id = video_id_match.group(1)
-            watch_url = f"https://www.youtube.com/watch?v={video_id}"
-
-            headers = {
-                "User-Agent": "Mozilla/5.0"
-            }
-
-            response = httpx.get(watch_url, headers=headers, timeout=10)
-
-            # Debugging response
-            print("Response Text:\n", response.text[:1000])  # Print first 1000 characters of the response
-
-            match = re.search(r"var ytInitialPlayerResponse = ({.*?});", response.text)
-            if not match:
-                return []
-
-            data = json.loads(match.group(1))
-            video_details = data.get("videoDetails", {})
-
-            # Print to check if data is correctly fetched
-            print("Video Details:", video_details)
-
-            return [{
-                "title": video_details.get("title", "Unknown"),
-                "artist_name": video_details.get("author", "Unknown"),
-                "channel_name": video_details.get("author", "Unknown"),
-                "views": format_views(video_details.get("viewCount", "0")),
-                "duration": parse_dur(str(video_details.get("lengthSeconds", "0"))),
-                "thumbnail": f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg",
-                "url": watch_url,
-            }]
-    
-    # If the query is a name to search
     search_url = f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}"
     headers = {
         "User-Agent": "Mozilla/5.0"
@@ -60,9 +21,9 @@ def Search(query: str, limit: int = 1):
         videos = data["contents"]["twoColumnSearchResultsRenderer"]["primaryContents"]\
             ["sectionListRenderer"]["contents"][0]["itemSectionRenderer"]["contents"]
 
-        for video in videos:
-            if "videoRenderer" in video:
-                v = video["videoRenderer"]
+        for item in videos:
+            if "videoRenderer" in item:
+                v = item["videoRenderer"]
                 title = v["title"]["runs"][0]["text"]
                 video_id = v["videoId"]
                 url = f"https://www.youtube.com/watch?v={video_id}"
@@ -72,6 +33,7 @@ def Search(query: str, limit: int = 1):
                 thumbnail = v["thumbnail"]["thumbnails"][-1]["url"]
 
                 results.append({
+                    "type": "video",
                     "title": title,
                     "artist_name": channel_name,
                     "channel_name": channel_name,
@@ -81,8 +43,26 @@ def Search(query: str, limit: int = 1):
                     "url": url,
                 })
 
-                if len(results) >= limit:
-                    break
+            elif "playlistRenderer" in item:
+                p = item["playlistRenderer"]
+                title = p["title"]["runs"][0]["text"]
+                playlist_id = p["playlistId"]
+                url = f"https://www.youtube.com/playlist?list={playlist_id}"
+                video_count = p.get("videoCount", "0")
+                thumbnail = p["thumbnails"][0]["thumbnails"][-1]["url"]
+                channel_name = p["shortBylineText"]["runs"][0]["text"]
+
+                results.append({
+                    "type": "playlist",
+                    "title": title,
+                    "channel_name": channel_name,
+                    "video_count": video_count,
+                    "thumbnail": thumbnail,
+                    "url": url,
+                })
+
+            if len(results) >= limit:
+                break
 
     except Exception as e:
         print("Error:", e)
