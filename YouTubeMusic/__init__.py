@@ -5,5 +5,5 @@ from .Search import Search
 
 
 
-__version__ = "7.2.0"
+__version__ = "7.3.0"
 __author__ = "ABHISHEK THAKUR"
