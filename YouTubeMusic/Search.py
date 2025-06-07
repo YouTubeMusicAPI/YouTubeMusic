@@ -1,10 +1,11 @@
+from urllib.parse import quote_plus
 import httpx
 import re
 import json
 from .Utils import parse_dur, format_views
 
 def Search(query: str, limit: int = 1):
-    search_url = f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}"
+    search_url = f"https://www.youtube.com/results?search_query={quote_plus(query)}"
     headers = {
         "User-Agent": "Mozilla/5.0"
     }
@@ -12,59 +13,76 @@ def Search(query: str, limit: int = 1):
     response = httpx.get(search_url, headers=headers, timeout=10)
     match = re.search(r"var ytInitialData = ({.*?});</script>", response.text)
     if not match:
-        return []
+        return {"main_results": [], "suggested": []}
 
     data = json.loads(match.group(1))
     results = []
+    suggested = []
 
     try:
-        videos = data["contents"]["twoColumnSearchResultsRenderer"]["primaryContents"]\
-            ["sectionListRenderer"]["contents"][0]["itemSectionRenderer"]["contents"]
+        contents = data["contents"]["twoColumnSearchResultsRenderer"]["primaryContents"]\
+            ["sectionListRenderer"]["contents"]
 
-        for item in videos:
-            if "videoRenderer" in item:
-                v = item["videoRenderer"]
-                title = v["title"]["runs"][0]["text"]
-                video_id = v["videoId"]
-                url = f"https://www.youtube.com/watch?v={video_id}"
-                duration = v.get("lengthText", {}).get("simpleText", "LIVE")
-                views = v.get("viewCountText", {}).get("simpleText", "0")
-                channel_name = v["ownerText"]["runs"][0]["text"]
-                thumbnail = v["thumbnail"]["thumbnails"][-1]["url"]
+        for block in contents:
+            if "itemSectionRenderer" not in block:
+                continue
 
-                results.append({
-                    "type": "video",
-                    "title": title,
-                    "artist_name": channel_name,
-                    "channel_name": channel_name,
-                    "views": format_views(views),
-                    "duration": duration,
-                    "thumbnail": thumbnail,
-                    "url": url,
-                })
+            items = block["itemSectionRenderer"]["contents"]
 
-            elif "playlistRenderer" in item:
-                p = item["playlistRenderer"]
-                title = p["title"]["runs"][0]["text"]
-                playlist_id = p["playlistId"]
-                url = f"https://www.youtube.com/playlist?list={playlist_id}"
-                video_count = p.get("videoCount", "0")
-                thumbnail = p["thumbnails"][0]["thumbnails"][-1]["url"]
-                channel_name = p["shortBylineText"]["runs"][0]["text"]
+            for item in items:
+                if "videoRenderer" in item:
+                    v = item["videoRenderer"]
+                    title = v["title"]["runs"][0]["text"]
+                    video_id = v["videoId"]
+                    url = f"https://www.youtube.com/watch?v={video_id}"
+                    duration = v.get("lengthText", {}).get("simpleText", "LIVE")
+                    views = v.get("viewCountText", {}).get("simpleText", "0")
+                    channel_name = v["ownerText"]["runs"][0]["text"]
+                    thumbnail = v["thumbnail"]["thumbnails"][-1]["url"]
 
-                results.append({
-                    "type": "playlist",
-                    "title": title,
-                    "channel_name": channel_name,
-                    "video_count": video_count,
-                    "thumbnail": thumbnail,
-                    "url": url,
-                })
+                    entry = {
+                        "type": "video",
+                        "title": title,
+                        "artist_name": channel_name,
+                        "channel_name": channel_name,
+                        "views": format_views(views),
+                        "duration": duration,
+                        "thumbnail": thumbnail,
+                        "url": url,
+                    }
 
-            if len(results) >= limit:
-                break
+                    if len(results) < limit:
+                        results.append(entry)
+                    else:
+                        suggested.append(entry)
+
+                elif "playlistRenderer" in item:
+                    p = item["playlistRenderer"]
+                    title = p["title"]["runs"][0]["text"]
+                    playlist_id = p["playlistId"]
+                    url = f"https://www.youtube.com/playlist?list={playlist_id}"
+                    video_count = p.get("videoCount", "0")
+                    thumbnail = p["thumbnails"][0]["thumbnails"][-1]["url"]
+                    channel_name = p["shortBylineText"]["runs"][0]["text"]
+
+                    entry = {
+                        "type": "playlist",
+                        "title": title,
+                        "channel_name": channel_name,
+                        "video_count": video_count,
+                        "thumbnail": thumbnail,
+                        "url": url,
+                    }
+
+                    if len(results) < limit:
+                        results.append(entry)
+                    else:
+                        suggested.append(entry)
 
     except Exception as e:
         print("Error:", e)
 
-    return results
+    return {
+        "main_results": results,
+        "suggested": suggested[:5]  # Only return up to 5 suggestions
+    }
