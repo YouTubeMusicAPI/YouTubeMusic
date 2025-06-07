@@ -1,21 +1,23 @@
-import sys
 import asyncio
 from YouTubeMusic.Search import Search
 
-def main():
-    if len(sys.argv) < 2:
-        print("Please provide a search query.")
+async def main():
+    query = input("Enter song name or YouTube URL: ").strip()
+    results = await Search(query, limit=1)
+
+    if not results or not results.get("main_results"):
+        print("❌ No results found.")
         return
 
-    query = sys.argv[1]
-    results = asyncio.run(Search(query))
-
-    if results:
-        print("Found Videos:")
-        for video in results:
-            print(f"Title: {video.title}\nURL: {video.url}")
-    else:
-        print("No results found.")
+    item = results["main_results"][0]
+    print("\n🎵 Result")
+    print("Type      :", item.get("type", "video"))
+    print("Title     :", item["title"])
+    print("Channel   :", item["channel_name"])
+    print("Views     :", item["views"])
+    print("Duration  :", item["duration"])
+    print("Thumbnail :", item["thumbnail"])
+    print("URL       :", item["url"])
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
