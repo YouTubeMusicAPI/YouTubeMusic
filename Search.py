@@ -1,7 +1,12 @@
 import asyncio
 from YouTubeMusic.Search import Search
+from YouTubeMusic.Update import check_for_update
 
 async def main():
+    update_msg = await check_for_update()
+    if update_msg:
+        print(update_msg)
+
     query = input("Enter song name or YouTube URL: ").strip()
     results = await Search(query, limit=1)
 
