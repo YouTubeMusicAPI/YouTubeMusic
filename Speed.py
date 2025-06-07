@@ -1,5 +1,6 @@
 import asyncio
 import time
+import httpx
 from YouTubeMusic.Search import Search
 
 QUERIES = [
