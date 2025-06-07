@@ -15,7 +15,7 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-            'ytmusic=YouTubeMusic.cli:cli',
+            'yt-music=YouTubeMusic.cli:cli',
         ],
     },
     classifiers=[
