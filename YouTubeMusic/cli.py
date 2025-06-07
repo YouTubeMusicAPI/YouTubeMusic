@@ -27,7 +27,7 @@ async def run_search(query: str):
 
 def cli():
     parser = argparse.ArgumentParser(prog="YouTubeMusic")
-    parser.add_argument('query', nargs='+', help='Song name or YouTube URL')
+    parser.add_argument('query', nargs='*', help='Song name or YouTube URL')
     parser.add_argument('--version', action='version', version=f'YouTubeMusic {__version__}')
     parser.add_argument('--info', action='store_true', help='Show version, author & contact info')
 
