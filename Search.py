@@ -1,9 +1,25 @@
 import asyncio
 from YouTubeMusic.Search import Search
 from YouTubeMusic.Playlist import get_playlist_songs
+from YouTubeMusic.Utils import extract_playlist_id
 
 def main():
     query = input("Enter song name or YouTube URL: ").strip()
+
+    if query.startswith("http") and "list=" in query:
+        playlist_id = extract_playlist_id(query)
+        if playlist_id:
+            print(f"Detected Playlist ID: {playlist_id}")
+            songs = asyncio.run(get_playlist_songs(playlist_id))
+            if songs:
+                print(f"\nPlaylist Songs ({len(songs)}):")
+                for i, song in enumerate(songs, 1):
+                    print(f"{i}. {song['title']} - {song['channel']} [{song['duration']}]")
+                    print(f"   URL: {song['url']}")
+            else:
+                print("No songs found in the playlist.")
+            return
+
     results = Search(query, limit=3)
 
     if not results or not results.get("main_results"):
