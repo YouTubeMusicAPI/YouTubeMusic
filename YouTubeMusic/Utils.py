@@ -1,5 +1,13 @@
 import re
+import urllib.parse as urlparse
 
+def extract_playlist_id(url: str) -> str:
+    query = urlparse.urlparse(url).query
+    params = urlparse.parse_qs(query)
+    if "list" in params:
+        return params["list"][0]
+    return ""
+    
 def parse_dur(duration):
     match = re.match(
         r'PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?', duration
