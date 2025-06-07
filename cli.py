@@ -1,8 +1,14 @@
 import asyncio
+import argparse
 from YouTubeMusic.Search import Search
+from YouTubeMusic.Update import check_for_update
+from YouTubeMusic import __version__
 
-async def main():
-    query = input("Enter song name or YouTube URL: ").strip()
+async def run_search(query: str):
+    update_msg = await check_for_update()
+    if update_msg:
+        print(update_msg)
+
     results = await Search(query, limit=1)
 
     if not results or not results.get("main_results"):
@@ -19,5 +25,17 @@ async def main():
     print("Thumbnail :", item["thumbnail"])
     print("URL       :", item["url"])
 
+def cli():
+    parser = argparse.ArgumentParser(prog="YouTubeMusic")
+    parser.add_argument('query', nargs='?', help='Song name or YouTube URL')
+    parser.add_argument('--version', action='version', version=f'YouTubeMusic {__version__}')
+    args = parser.parse_args()
+
+    if not args.query:
+        print("Please provide a search query.")
+        return
+
+    asyncio.run(run_search(args.query))
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    cli()
