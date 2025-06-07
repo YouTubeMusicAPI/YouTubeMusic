@@ -4,7 +4,7 @@ import json
 import asyncio
 
 async def fetch_playlist_page(playlist_id: str) -> str:
-    url = f"https://music.youtube.com/playlist?list={playlist_id}"
+    url = f"https://www.youtube.com/playlist?list={playlist_id}" 
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                       "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -15,16 +15,19 @@ async def fetch_playlist_page(playlist_id: str) -> str:
         response.raise_for_status()
         return response.text
 
+
 def extract_yt_initial_data(html: str) -> dict:
-    pattern = r"var ytInitialData = ({.*?});</script>"
-    match = re.search(pattern, html)
-    if not match:
-        pattern_alt = r'window\["ytInitialData"\] = ({.*?});'
-        match = re.search(pattern_alt, html)
-        if not match:
-            raise ValueError("ytInitialData not found in page")
-    json_str = match.group(1)
-    return json.loads(json_str)
+    patterns = [
+        r"var ytInitialData = ({.*?});</script>",
+        r'window\["ytInitialData"\] = ({.*?});',
+        r"window\.ytInitialData = ({.*?});"
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, html, re.DOTALL)
+        if match:
+            json_str = match.group(1)
+            return json.loads(json_str)
+    raise ValueError("ytInitialData not found in page")
 
 def parse_playlist_songs(data: dict) -> list:
     songs = []
