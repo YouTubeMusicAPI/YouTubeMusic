@@ -1,4 +1,6 @@
+import asyncio
 from YouTubeMusic.Search import Search
+from YouTubeMusic.Playlist import get_playlist_songs
 
 def main():
     query = input("Enter song name or YouTube URL: ").strip()
@@ -19,12 +21,20 @@ def main():
 
         if item.get("type") == "playlist":
             print("Videos    :", item.get("video_count", "Unknown"))
+            playlist_id = item["url"].split("list=")[-1]
+            print("\nFetching playlist songs...")
+            try:
+                songs = asyncio.run(get_playlist_songs(playlist_id))
+                for s_idx, song in enumerate(songs, 1):
+                    print(f"  {s_idx}. {song['title']} - {song['channel']} [{song['duration']}]")
+                    print(f"     URL: {song['url']}")
+            except Exception as e:
+                print(f"  Error fetching playlist songs: {e}")
         else:
             print("Artist    :", item.get("artist_name", "Unknown"))
             print("Duration  :", item.get("duration", "Unknown"))
             print("Views     :", item.get("views", "0"))
 
-    # Show Suggested Songs if available
     suggested = results.get("suggested", [])
     if suggested:
         print("\n--- Suggested Songs ---")
