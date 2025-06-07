@@ -5,17 +5,26 @@ import asyncio
 
 async def fetch_playlist_page(playlist_id: str) -> str:
     url = f"https://music.youtube.com/playlist?list={playlist_id}"
-    headers = {"User-Agent": "Mozilla/5.0"}
-    async with httpx.AsyncClient(timeout=10) as client:
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                      "AppleWebKit/537.36 (KHTML, like Gecko) "
+                      "Chrome/115.0.0.0 Safari/537.36"
+    }
+    async with httpx.AsyncClient(timeout=15) as client:
         response = await client.get(url, headers=headers)
         response.raise_for_status()
         return response.text
 
 def extract_yt_initial_data(html: str) -> dict:
-    match = re.search(r"var ytInitialData = ({.*?});</script>", html)
+    pattern = r"var ytInitialData = ({.*?});</script>"
+    match = re.search(pattern, html)
     if not match:
-        raise ValueError("ytInitialData not found in page")
-    return json.loads(match.group(1))
+        pattern_alt = r'window\["ytInitialData"\] = ({.*?});'
+        match = re.search(pattern_alt, html)
+        if not match:
+            raise ValueError("ytInitialData not found in page")
+    json_str = match.group(1)
+    return json.loads(json_str)
 
 def parse_playlist_songs(data: dict) -> list:
     songs = []
@@ -46,4 +55,4 @@ async def get_playlist_songs(playlist_id: str) -> list:
     data = extract_yt_initial_data(html)
     songs = parse_playlist_songs(data)
     return songs
-  
+
