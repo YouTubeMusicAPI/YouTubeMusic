@@ -40,7 +40,6 @@ async def SearchYt(query: str):
     for item in results:
         search_data.append({
             "title": item["title"],
-            "artist": item["artist_name"],
             "channel": item["channel_name"],
             "duration": item["duration"],
             "views": item["views"],
