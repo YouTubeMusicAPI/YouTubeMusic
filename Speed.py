@@ -1,5 +1,6 @@
+import asyncio
 import time
-from YouTubeMusic.Search import Search  # Make sure this matches your module/package structure
+from YouTubeMusic.Search import Search
 
 QUERIES = [
     "Love Story Taylor Swift",
@@ -12,24 +13,25 @@ QUERIES = [
     "Bad Guy Billie Eilish",
 ]
 
-def main():
+async def main():
     print("🎧 Testing YouTubeMusic Search...\n")
+    start = time.perf_counter()
 
-    for query in QUERIES:
-        start = time.perf_counter()
-        result = Search(query, limit=1)
-        end = time.perf_counter()
+    async with httpx.AsyncClient(http2=True, timeout=5.0) as client:
+        tasks = [Search(query, limit=1, client=client) for query in QUERIES]
+        results = await asyncio.gather(*tasks)
 
-        main_result = result["main_results"][0] if result["main_results"] else None
+    end = time.perf_counter()
+    print(f"\n⏱️ Total Time: {end - start:.2f}s\n")
 
-        if main_result:
+    for query, result in zip(QUERIES, results):
+        if result["main_results"]:
+            song = result["main_results"][0]
             print(f"✅ {query}")
-            print(f"   Title: {main_result['title']}")
-            print(f"   URL  : {main_result['url']}")
-            print(f"   Time : {end - start:.2f}s\n")
+            print(f"   Title: {song['title']}")
+            print(f"   URL  : {song['url']}\n")
         else:
-            print(f"❌ {query} — No result found\n")
+            print(f"❌ {query} — No result\n")
 
 if __name__ == "__main__":
-    main()
-  
+    asyncio.run(main())
