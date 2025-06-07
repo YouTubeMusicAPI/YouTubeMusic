@@ -56,6 +56,6 @@ def parse_playlist_songs(data: dict) -> list:
 async def get_playlist_songs(playlist_id: str) -> list:
     html = await fetch_playlist_page(playlist_id)
     data = extract_yt_initial_data(html)
+    print(json.dumps(data, indent=2))  # Debug
     songs = parse_playlist_songs(data)
     return songs
-
