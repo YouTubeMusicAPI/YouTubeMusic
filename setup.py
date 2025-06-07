@@ -11,7 +11,7 @@ setup(
     url="https://github.com/YouTubeMusicAPI/YouTubeMusic",
     packages=find_packages(),
     install_requires=[
-        "httpx",
+        "httpx[http2]",
     ],
     classifiers=[
         "Programming Language :: Python :: 3",
