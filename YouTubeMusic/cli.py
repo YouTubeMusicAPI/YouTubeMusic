@@ -2,7 +2,7 @@ import asyncio
 import argparse
 from YouTubeMusic.Search import Search
 from YouTubeMusic.Update import check_for_update
-from YouTubeMusic import __version__
+from YouTubeMusic import __version__, __author__
 
 async def run_search(query: str):
     update_msg = await check_for_update()
@@ -27,15 +27,24 @@ async def run_search(query: str):
 
 def cli():
     parser = argparse.ArgumentParser(prog="YouTubeMusic")
-    parser.add_argument('query', nargs='?', help='Song name or YouTube URL')
+    parser.add_argument('query', nargs='+', help='Song name or YouTube URL')
     parser.add_argument('--version', action='version', version=f'YouTubeMusic {__version__}')
+    parser.add_argument('--info', action='store_true', help='Show version, author & contact info')
+
     args = parser.parse_args()
+
+    if args.info:
+        print(f"YouTubeMusic Version: {__version__}")
+        print(f"Author: {__author__}")
+        print("Contacts: Telegram - @AboutRealAbhi")
+        return
 
     if not args.query:
         print("Please provide a search query.")
         return
 
-    asyncio.run(run_search(args.query))
+    query = " ".join(args.query)
+    asyncio.run(run_search(query))
 
 if __name__ == "__main__":
     cli()
