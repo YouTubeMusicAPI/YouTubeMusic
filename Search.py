@@ -13,7 +13,6 @@ async def main():
     print("\n🎵 Result")
     print("Type      :", item.get("type", "video"))
     print("Title     :", item["title"])
-    print("Artist    :", item["artist_name"])
     print("Channel   :", item["channel_name"])
     print("Views     :", item["views"])
     print("Duration  :", item["duration"])
