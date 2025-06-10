@@ -56,7 +56,7 @@ def cli():
         return
 
     query = " ".join(args.query)
-    asyncio.run(run_search(query, fetch_audio=args.audio))
+    asyncio.run(run_search(query, fetch_audio=args.stream))
 
 
 if __name__ == "__main__":
