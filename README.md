@@ -33,21 +33,22 @@ from YouTubeMusic.Search import Search
 async def SearchYt(query: str):
     results = await Search(query, limit=1)
 
-    if not results:
+    if not results or not results.get("main_results"):
         raise Exception("No results found.")
 
-    search_data = []
-    for item in results:
-        search_data.append({
-            "title": item["title"],
-            "channel": item["channel_name"],
-            "duration": item["duration"],
-            "views": item["views"],
-            "thumbnail": item["thumbnail"],
-            "url": item["url"]
-        })
+    item = results["main_results"][0] 
 
-    stream_url = results[0]["url"]
-    
-    return search_data, stream_url
+    search_data = [{
+        "title": item.get("title"),
+        "artist": item.get("artist_name"),
+        "channel": item.get("channel_name"),
+        "duration": item.get("duration"),
+        "views": item.get("views"),
+        "thumbnail": item.get("thumbnail"),
+        "url": item.get("url")
+    }]
+
+    song_url = item["url"] 
+
+    return search_data, song_url
 ```
