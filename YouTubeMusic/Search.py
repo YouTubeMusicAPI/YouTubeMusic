@@ -2,6 +2,7 @@ from urllib.parse import quote_plus
 import httpx
 import re
 import json
+from .Utils import format_views
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0",
@@ -46,7 +47,7 @@ async def Search(query: str, limit: int = 1, client=None):
                         "url": f"https://www.youtube.com/watch?v={v['videoId']}",
                         "duration": v.get("lengthText", {}).get("simpleText", "LIVE"),
                         "channel_name": v.get("ownerText", {}).get("runs", [{}])[0].get("text", "Unknown"),
-                        "views": v.get("viewCountText", {}).get("simpleText", "0 views"),
+                        "views": format_views(v.get("viewCountText", {}).get("simpleText", "0 views")),
                         "thumbnail": v["thumbnail"]["thumbnails"][-1]["url"],
                     })
 
