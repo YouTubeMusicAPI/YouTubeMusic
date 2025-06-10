@@ -1,30 +1,25 @@
 import subprocess
 import json
-import os
 
-# user define this path
-COOKIES_PATH = ""
-
-def get_audio_url(video_url):
+def get_audio_url(video_url: str, cookies_path: str = None) -> str | None:
     try:
         cmd = [
             "yt-dlp",
             "-j",
             "-f", "bestaudio[ext=m4a]/bestaudio",
             "--no-playlist",
-            "--no-check-certificate"
+            "--no-check-certificate",
         ]
 
-        # Only add cookies if path is set and file exists
-        if COOKIES_PATH and os.path.exists(COOKIES_PATH):
-            cmd += ["--cookies", COOKIES_PATH]
+        if cookies_path:
+            cmd += ["--cookies", cookies_path]
 
         cmd.append(video_url)
 
         result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
         if result.returncode != 0:
-            print("❌ yt-dlp error:", result.stderr.strip())
+            print("❌ yt-dlp error:", result.stderr)
             return None
 
         data = json.loads(result.stdout)
