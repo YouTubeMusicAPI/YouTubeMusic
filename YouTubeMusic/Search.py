@@ -2,7 +2,18 @@ from urllib.parse import quote_plus
 import httpx
 import re
 import orjson
+import os
 from .Utils import format_views
+
+CACHE_FILE = os.path.join(os.path.dirname(__file__), "yt_cache.json")
+_cache = {}
+
+if os.path.exists(CACHE_FILE):
+    try:
+        with open(CACHE_FILE, "rb") as f:
+            _cache = orjson.loads(f.read())
+    except Exception:
+        _cache = {}
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0",
@@ -10,26 +21,19 @@ HEADERS = {
 }
 
 YOUTUBE_SEARCH_URL = "https://www.youtube.com/results?search_query={}"
-
-_cache = {}
-
 yt_data_regex = re.compile(r"ytInitialData\s*=\s*(\{.+?\});", re.DOTALL)
-
 _client = httpx.AsyncClient(http2=True, timeout=5.0, limits=httpx.Limits(max_connections=10, max_keepalive_connections=5))
 
-async def Search(query: str, limit: int = 1, client=None):
+async def Search(query: str, limit: int = 1):
     if query in _cache:
         return _cache[query]
 
     search_url = YOUTUBE_SEARCH_URL.format(quote_plus(query))
-    if client is None:
-        client = _client
 
     try:
-        response = await client.get(search_url, headers=HEADERS)
-        response.raise_for_status()
+        response = await _client.get(search_url, headers=HEADERS)
     except Exception as e:
-        print(f"[!] Request failed for '{query}': {e}")
+        print(f"[!] Request failed: {e}")
         return {"main_results": [], "suggested": []}
 
     match = yt_data_regex.search(response.text)
@@ -72,8 +76,14 @@ async def Search(query: str, limit: int = 1, client=None):
         }
 
         _cache[query] = output
+        try:
+            with open(CACHE_FILE, "wb") as f:
+                f.write(orjson.dumps(_cache))
+        except Exception as e:
+            print(f"[!] Cache write failed: {e}")
+
         return output
 
     except Exception as e:
-        print(f"[!] Parse error for '{query}': {e}")
+        print(f"[!] Parse error: {e}")
         return {"main_results": [], "suggested": []}
