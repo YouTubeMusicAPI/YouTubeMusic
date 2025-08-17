@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "YouTubeMusic"
-version = "2025.08.20"
+version = "2025.8.20"
 description = "A YouTube Music Search Package With Artist, Channel, and Video Details"
 authors = [
   { name="ABHISHEK THAKUR", email="abhishekbanshiwal2005@gmail.com" }
@@ -14,7 +14,8 @@ requires-python = ">=3.8"
 dependencies = [
     "httpx[http2]",
     "orjson>=3.9.0",
-    "yt-dlp"
+    "yt-dlp",
+    "redis[async]"
 ]
 
 [project.scripts]
