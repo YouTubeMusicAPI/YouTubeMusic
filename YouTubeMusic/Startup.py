@@ -18,7 +18,7 @@ def print_startup_message():
     print(Fore.CYAN + f"Version : {__version__}")
     print(Fore.CYAN + f"Author  : {__author__}")
     print(Fore.CYAN + "License : MIT")
-    print(Fore.CYAN + "GitHub  : https://github.com/AbhisSinging/YouTubeMusic")
+    print(Fore.CYAN + "GitHub  : https://github.com/YouTubeMusicAPI/YouTubeMusic")
 
     latest = check_latest_version("YouTubeMusic")
     if latest and latest != __version__:
