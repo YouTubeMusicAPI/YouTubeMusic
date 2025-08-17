@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="YouTubeMusic",
-    version="2025.08.20",
+    version="2025.8.20",
     description="A YouTube Music Search Package With Artist, Channel, and Video Details",
     long_description=open('README.md', encoding='utf-8').read(),
     long_description_content_type="text/markdown",
@@ -13,7 +13,8 @@ setup(
     install_requires=[
         "httpx[http2]",
         "orjson>=3.9.0",
-        "yt-dlp"
+        "yt-dlp",
+        "redis[async]"
     ],
     entry_points={
         'console_scripts': [
