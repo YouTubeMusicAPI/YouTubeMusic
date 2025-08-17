@@ -15,7 +15,6 @@ _cache = {}
 
 yt_data_regex = re.compile(r"ytInitialData\s*=\s*(\{.+?\});", re.DOTALL)
 
-
 _client = httpx.AsyncClient(http2=True, timeout=5.0, limits=httpx.Limits(max_connections=10, max_keepalive_connections=5))
 
 async def Search(query: str, limit: int = 1, client=None):
@@ -28,8 +27,9 @@ async def Search(query: str, limit: int = 1, client=None):
 
     try:
         response = await client.get(search_url, headers=HEADERS)
+        response.raise_for_status()
     except Exception as e:
-        print(f"[!] Request failed: {e}")
+        print(f"[!] Request failed for '{query}': {e}")
         return {"main_results": [], "suggested": []}
 
     match = yt_data_regex.search(response.text)
@@ -75,5 +75,5 @@ async def Search(query: str, limit: int = 1, client=None):
         return output
 
     except Exception as e:
-        print(f"[!] Parse error: {e}")
+        print(f"[!] Parse error for '{query}': {e}")
         return {"main_results": [], "suggested": []}
