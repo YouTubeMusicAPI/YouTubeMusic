@@ -19,7 +19,7 @@ async def main():
     start = time.perf_counter()
 
     async with httpx.AsyncClient(http2=True, timeout=5.0) as client:
-        tasks = [Search(query, limit=1, client=client) for query in QUERIES]
+        tasks = [Search(query, limit=1) for query in QUERIES]
         results = await asyncio.gather(*tasks)
 
     end = time.perf_counter()
