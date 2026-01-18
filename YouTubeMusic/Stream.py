@@ -8,54 +8,63 @@ def get_stream_url(
     mode: str = "audio"   # "audio" | "video"
 ) -> str | None:
     try:
-        if mode == "video":
-            fmt = "bv*+ba/b"
-        else:
-            fmt = "ba/b"
+        # 🔥 SAFE FORMAT (auto select)
+        fmt = "ba/b" if mode == "audio" else "bv*+ba/b"
 
         cmd = [
             "yt-dlp",
-            "-j",
+            "-J",                      # FULL JSON
             "-f", fmt,
             "--no-playlist",
             "--quiet",
             "--no-warnings",
-            "--merge-output-format", "mp4"
         ]
 
-        # 🔥 MOST IMPORTANT (n-challenge bypass)
+        # 🔥 YouTube n / signature safe
         cmd += ["--extractor-args", "youtube:player-client=android"]
 
+        # Cookies (optional)
         if cookies_path:
             cmd += ["--cookies", cookies_path]
 
         cmd.append(video_url)
 
-        result = subprocess.run(
+        p = subprocess.run(
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True
         )
 
-        if result.returncode != 0:
-            print("❌ yt-dlp error:", result.stderr)
+        if p.returncode != 0:
+            print("❌ yt-dlp error:", p.stderr.strip())
             return None
 
-        data = json.loads(result.stdout)
+        data = json.loads(p.stdout)
 
-        # 🎯 CORRECT STREAM URL
+        # ───────── AUDIO ─────────
         if mode == "audio":
             for f in data.get("formats", []):
-                if f.get("acodec") != "none" and f.get("vcodec") == "none":
-                    return f.get("url")
+                if (
+                    f.get("acodec") not in (None, "none")
+                    and f.get("vcodec") in (None, "none")
+                    and f.get("url")
+                ):
+                    return f["url"]
+
+        # ───────── VIDEO ─────────
         else:
             for f in data.get("formats", []):
-                if f.get("acodec") != "none" and f.get("vcodec") != "none":
-                    return f.get("url")
+                if (
+                    f.get("acodec") not in (None, "none")
+                    and f.get("vcodec") not in (None, "none")
+                    and f.get("url")
+                ):
+                    return f["url"]
 
         return None
 
     except Exception as e:
-        print(f"❌ Error extracting stream URL: {e}")
+        print("❌ Extract error:", e)
         return None
+        
