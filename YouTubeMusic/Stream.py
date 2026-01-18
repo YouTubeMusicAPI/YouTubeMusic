@@ -8,22 +8,20 @@ def get_stream_url(
     mode: str = "audio"   # "audio" | "video"
 ) -> str | None:
     try:
-        # 🔥 SAFE FORMAT (auto select)
+        # SAFE AUTO FORMAT
         fmt = "ba/b" if mode == "audio" else "bv*+ba/b"
 
         cmd = [
             "yt-dlp",
-            "-J",                      # FULL JSON
+            "-J",  # full json
             "-f", fmt,
             "--no-playlist",
             "--quiet",
             "--no-warnings",
+            "--extractor-args", "youtube:player-client=android",
         ]
 
-        # 🔥 YouTube n / signature safe
-        cmd += ["--extractor-args", "youtube:player-client=android"]
-
-        # Cookies (optional)
+        # cookies (optional)
         if cookies_path:
             cmd += ["--cookies", cookies_path]
 
@@ -33,7 +31,8 @@ def get_stream_url(
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True
+            text=True,
+            timeout=25
         )
 
         if p.returncode != 0:
@@ -41,10 +40,13 @@ def get_stream_url(
             return None
 
         data = json.loads(p.stdout)
+        formats = data.get("formats", [])
 
-        # ───────── AUDIO ─────────
+        # ───────── AUDIO MODE ─────────
         if mode == "audio":
-            for f in data.get("formats", []):
+
+            # 1️⃣ Try PURE audio-only stream
+            for f in formats:
                 if (
                     f.get("acodec") not in (None, "none")
                     and f.get("vcodec") in (None, "none")
@@ -52,9 +54,18 @@ def get_stream_url(
                 ):
                     return f["url"]
 
-        # ───────── VIDEO ─────────
+            # 2️⃣ FALLBACK → video+audio stream
+            for f in formats:
+                if (
+                    f.get("acodec") not in (None, "none")
+                    and f.get("vcodec") not in (None, "none")
+                    and f.get("url")
+                ):
+                    return f["url"]
+
+        # ───────── VIDEO MODE ─────────
         else:
-            for f in data.get("formats", []):
+            for f in formats:
                 if (
                     f.get("acodec") not in (None, "none")
                     and f.get("vcodec") not in (None, "none")
@@ -67,4 +78,3 @@ def get_stream_url(
     except Exception as e:
         print("❌ Extract error:", e)
         return None
-        
