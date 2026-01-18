@@ -1,6 +1,7 @@
 import subprocess
 import json
 
+
 def get_stream_url(
     video_url: str,
     cookies_path: str = None,
@@ -8,20 +9,22 @@ def get_stream_url(
 ) -> str | None:
     try:
         if mode == "video":
-            fmt = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best"
-            extra = ["--merge-output-format", "mp4"]
+            fmt = "bv*+ba/b"
         else:
-            fmt = "bestaudio[ext=m4a]/bestaudio"
-            extra = []
+            fmt = "ba/b"
 
         cmd = [
             "yt-dlp",
             "-j",
             "-f", fmt,
             "--no-playlist",
-            "--no-check-certificate",
-            *extra
+            "--quiet",
+            "--no-warnings",
+            "--merge-output-format", "mp4"
         ]
+
+        # 🔥 MOST IMPORTANT (n-challenge bypass)
+        cmd += ["--extractor-args", "youtube:player-client=android"]
 
         if cookies_path:
             cmd += ["--cookies", cookies_path]
@@ -40,7 +43,18 @@ def get_stream_url(
             return None
 
         data = json.loads(result.stdout)
-        return data.get("url")
+
+        # 🎯 CORRECT STREAM URL
+        if mode == "audio":
+            for f in data.get("formats", []):
+                if f.get("acodec") != "none" and f.get("vcodec") == "none":
+                    return f.get("url")
+        else:
+            for f in data.get("formats", []):
+                if f.get("acodec") != "none" and f.get("vcodec") != "none":
+                    return f.get("url")
+
+        return None
 
     except Exception as e:
         print(f"❌ Error extracting stream URL: {e}")
