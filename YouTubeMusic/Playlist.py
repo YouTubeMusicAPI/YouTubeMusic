@@ -2,60 +2,106 @@ import httpx
 import re
 import json
 import asyncio
+from urllib.parse import urlparse, parse_qs
+from typing import List, Dict
+
+
+HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/120.0.0.0 Safari/537.36"
+    )
+}
+
+
+def extract_playlist_id(value: str) -> str:
+    value = value.strip()
+    if value.startswith(("PL", "OL", "UU", "RD")):
+        return value
+    parsed = urlparse(value)
+    query = parse_qs(parsed.query)
+    pid = query.get("list", [None])[0]
+    if not pid:
+        raise ValueError("Invalid playlist link or ID")
+    return pid
+
 
 async def fetch_playlist_page(playlist_id: str) -> str:
-    url = f"https://www.youtube.com/playlist?list={playlist_id}" 
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                      "AppleWebKit/537.36 (KHTML, like Gecko) "
-                      "Chrome/115.0.0.0 Safari/537.36"
-    }
-    async with httpx.AsyncClient(timeout=15) as client:
-        response = await client.get(url, headers=headers)
-        response.raise_for_status()
-        return response.text
+    url = f"https://www.youtube.com/playlist?list={playlist_id}"
+    async with httpx.AsyncClient(timeout=20, headers=HEADERS) as client:
+        r = await client.get(url)
+        r.raise_for_status()
+        return r.text
 
 
 def extract_yt_initial_data(html: str) -> dict:
-    patterns = [
-        r"var ytInitialData = ({.*?});</script>",
-        r'window\["ytInitialData"\] = ({.*?});',
-        r"window\.ytInitialData = ({.*?});"
-    ]
-    for pattern in patterns:
-        match = re.search(pattern, html, re.DOTALL)
-        if match:
-            json_str = match.group(1)
-            return json.loads(json_str)
-    raise ValueError("ytInitialData not found in page")
+    match = re.search(
+        r"ytInitialData\s*=\s*({.*?});\s*</script>",
+        html,
+        re.DOTALL
+    )
+    if not match:
+        raise ValueError("ytInitialData not found")
+    return json.loads(match.group(1))
 
-def parse_playlist_songs(data: dict) -> list:
+
+def get_text(obj) -> str:
+    if not obj:
+        return ""
+    if "simpleText" in obj:
+        return obj["simpleText"]
+    if "runs" in obj:
+        return "".join(r.get("text", "") for r in obj["runs"])
+    return ""
+
+
+def parse_playlist_songs(data: dict) -> List[Dict]:
     songs = []
-    try:
-        videos = data["contents"]["twoColumnBrowseResultsRenderer"]["tabs"][0]["tabRenderer"]\
-            ["content"]["sectionListRenderer"]["contents"][0]["playlistVideoListRenderer"]["contents"]
+    tabs = data.get("contents", {}) \
+        .get("twoColumnBrowseResultsRenderer", {}) \
+        .get("tabs", [])
 
-        for video in videos:
-            video_data = video.get("playlistVideoRenderer")
-            if not video_data:
-                continue
+    for tab in tabs:
+        content = tab.get("tabRenderer", {}).get("content")
+        if not content:
+            continue
 
-            song = {
-                "videoId": video_data["videoId"],
-                "title": video_data["title"]["simpleText"],
-                "channel": video_data.get("shortBylineText", {}).get("runs", [{}])[0].get("text", ""),
-                "duration": video_data.get("lengthSeconds", "N/A"),
-                "url": f"https://music.youtube.com/watch?v={video_data['videoId']}"
-            }
-            songs.append(song)
-
-    except Exception:
-        pass
+        sections = content.get("sectionListRenderer", {}).get("contents", [])
+        for section in sections:
+            items = section.get("itemSectionRenderer", {}).get("contents", [])
+            for item in items:
+                videos = item.get("playlistVideoListRenderer", {}).get("contents", [])
+                for video in videos:
+                    r = video.get("playlistVideoRenderer")
+                    if not r:
+                        continue
+                    vid = r.get("videoId")
+                    if not vid:
+                        continue
+                    songs.append({
+                        "videoId": vid,
+                        "title": get_text(r.get("title")),
+                        "channel": get_text(r.get("shortBylineText")),
+                        "duration": r.get("lengthSeconds", "N/A"),
+                        "url": f"https://music.youtube.com/watch?v={vid}"
+                    })
     return songs
 
-async def get_playlist_songs(playlist_id: str) -> list:
+
+async def get_playlist_songs(playlist_input: str) -> List[Dict]:
+    playlist_id = extract_playlist_id(playlist_input)
     html = await fetch_playlist_page(playlist_id)
     data = extract_yt_initial_data(html)
-    print(json.dumps(data, indent=2))  # Debug
-    songs = parse_playlist_songs(data)
-    return songs
+    return parse_playlist_songs(data)
+
+
+if __name__ == "__main__":
+    async def run():
+        playlist = input("Playlist link or ID: ")
+        songs = await get_playlist_songs(playlist)
+        print(len(songs))
+        print(json.dumps(songs[:3], indent=2))
+
+    asyncio.run(run())
+    
