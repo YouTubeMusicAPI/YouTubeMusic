@@ -27,8 +27,13 @@ def extract_playlist_id(value: str) -> str:
     return pid
 
 
-async def fetch_playlist_page(playlist_id: str) -> str:
-    url = f"https://www.youtube.com/playlist?list={playlist_id}"
+def extract_video_id(value: str) -> str | None:
+    parsed = urlparse(value)
+    query = parse_qs(parsed.query)
+    return query.get("v", [None])[0]
+
+
+async def fetch_page(url: str) -> str:
     async with httpx.AsyncClient(timeout=20, headers=HEADERS) as client:
         r = await client.get(url)
         r.raise_for_status()
@@ -56,9 +61,8 @@ def get_text(obj) -> str:
     return ""
 
 
-def parse_playlist_songs(data: dict) -> List[Dict]:
+def parse_normal_playlist(data: dict) -> List[Dict]:
     songs = []
-
     tabs = data.get("contents", {}) \
         .get("twoColumnBrowseResultsRenderer", {}) \
         .get("tabs", [])
@@ -68,54 +72,67 @@ def parse_playlist_songs(data: dict) -> List[Dict]:
         if not content:
             continue
 
-        section_list = content.get("sectionListRenderer", {}).get("contents", [])
-
-        for section in section_list:
+        sections = content.get("sectionListRenderer", {}).get("contents", [])
+        for section in sections:
             items = section.get("itemSectionRenderer", {}).get("contents", [])
-
             for item in items:
-                if "playlistVideoListRenderer" in item:
-                    videos = item["playlistVideoListRenderer"].get("contents", [])
-                    for v in videos:
-                        r = v.get("playlistVideoRenderer")
-                        if not r:
-                            continue
-                        vid = r.get("videoId")
-                        if not vid:
-                            continue
-                        songs.append({
-                            "videoId": vid,
-                            "title": get_text(r.get("title")),
-                            "channel": get_text(r.get("shortBylineText")),
-                            "duration": r.get("lengthSeconds", "N/A"),
-                            "url": f"https://music.youtube.com/watch?v={vid}"
-                        })
-
-                if "playlistPanelRenderer" in item:
-                    videos = item["playlistPanelRenderer"].get("contents", [])
-                    for v in videos:
-                        r = v.get("playlistPanelVideoRenderer")
-                        if not r:
-                            continue
-                        vid = r.get("videoId")
-                        if not vid:
-                            continue
-                        songs.append({
-                            "videoId": vid,
-                            "title": get_text(r.get("title")),
-                            "channel": get_text(r.get("shortBylineText")),
-                            "duration": r.get("lengthSeconds", "N/A"),
-                            "url": f"https://music.youtube.com/watch?v={vid}"
-                        })
-
+                videos = item.get("playlistVideoListRenderer", {}).get("contents", [])
+                for v in videos:
+                    r = v.get("playlistVideoRenderer")
+                    if not r:
+                        continue
+                    vid = r.get("videoId")
+                    if not vid:
+                        continue
+                    songs.append({
+                        "videoId": vid,
+                        "title": get_text(r.get("title")),
+                        "channel": get_text(r.get("shortBylineText")),
+                        "duration": r.get("lengthSeconds", "N/A"),
+                        "url": f"https://music.youtube.com/watch?v={vid}"
+                    })
     return songs
 
 
-async def get_playlist_songs(playlist_input: str) -> List[Dict]:
-    playlist_id = extract_playlist_id(playlist_input)
-    html = await fetch_playlist_page(playlist_id)
+def parse_mix_playlist(data: dict) -> List[Dict]:
+    songs = []
+    panels = data.get("contents", {}) \
+        .get("twoColumnWatchNextResults", {}) \
+        .get("playlist", {}) \
+        .get("playlist", {}) \
+        .get("contents", [])
+
+    for item in panels:
+        r = item.get("playlistPanelVideoRenderer")
+        if not r:
+            continue
+        vid = r.get("videoId")
+        if not vid:
+            continue
+        songs.append({
+            "videoId": vid,
+            "title": get_text(r.get("title")),
+            "channel": get_text(r.get("shortBylineText")),
+            "duration": r.get("lengthSeconds", "N/A"),
+            "url": f"https://music.youtube.com/watch?v={vid}"
+        })
+    return songs
+
+
+async def get_playlist_songs(input_value: str) -> List[Dict]:
+    playlist_id = extract_playlist_id(input_value)
+
+    if playlist_id.startswith("RD"):
+        video_id = extract_video_id(input_value) or playlist_id.replace("RD", "", 1)
+        url = f"https://www.youtube.com/watch?v={video_id}&list={playlist_id}"
+        html = await fetch_page(url)
+        data = extract_yt_initial_data(html)
+        return parse_mix_playlist(data)
+
+    url = f"https://www.youtube.com/playlist?list={playlist_id}"
+    html = await fetch_page(url)
     data = extract_yt_initial_data(html)
-    return parse_playlist_songs(data)
+    return parse_normal_playlist(data)
 
 
 if __name__ == "__main__":
@@ -126,3 +143,4 @@ if __name__ == "__main__":
         print(json.dumps(songs[:5], indent=2))
 
     asyncio.run(run())
+    
