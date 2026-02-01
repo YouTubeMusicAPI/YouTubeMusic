@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="YouTubeMusic",
-    version="2026.2.02",
+    version="2026.2.03",
     description="A YouTube Music Search Package With Artist, Channel, and Video Details",
     long_description=open('README.md', encoding='utf-8').read(),
     long_description_content_type="text/markdown",
