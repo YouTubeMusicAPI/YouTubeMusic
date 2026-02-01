@@ -3,7 +3,7 @@ import argparse
 
 from YouTubeMusic.Search import Search
 from YouTubeMusic.Update import check_for_update
-from YouTubeMusic.Stream import get_audio_url
+from YouTubeMusic.Stream import get_stream
 from YouTubeMusic import __version__, __author__
 
 
