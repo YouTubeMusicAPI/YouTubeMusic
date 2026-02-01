@@ -165,3 +165,5 @@ async def Search(query: str, limit: int = 1):
         finally:
             LOCKS.pop(qkey, None)
             
+
+__all__ = ["Search", "close_client"]
