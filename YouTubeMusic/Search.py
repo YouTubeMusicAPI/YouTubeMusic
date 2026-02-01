@@ -8,7 +8,7 @@ import asyncio
 # CONFIG
 # ─────────────────────────────
 UPSTASH_REDIS_REST_URL = "https://accepted-woodcock-22573.upstash.io"
-UPSTASH_REDIS_REST_TOKEN = "PASTE_YOUR_TOKEN_HERE"
+UPSTASH_REDIS_REST_TOKEN = "AlgtAAIgcDJ6f5vhlO6Q9Af3w4dwAI4dvtMnh0IJCpKbAZDWe3Ac9w"
 
 REDIS_HEADERS = {
     "Authorization": f"Bearer {UPSTASH_REDIS_REST_TOKEN}"
