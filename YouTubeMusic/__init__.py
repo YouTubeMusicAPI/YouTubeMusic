@@ -1,5 +1,5 @@
 from .YtSearch import Search as YtSearch
-from .Search import Search
+from .Search import Search, close_client
 from .Models import format_dur, process_video, extract_artist
 from .Utils import parse_dur, format_ind, format_views
 
