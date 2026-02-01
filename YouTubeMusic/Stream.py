@@ -1,6 +1,5 @@
 import subprocess
 import json
-import time
 import os
 import hashlib
 
@@ -10,14 +9,11 @@ __all__ = ["get_stream"]
 # CONFIG
 # ==============================
 
-_TTL = 300  # seconds (5 min)
 _CACHE_DIR = os.path.join(os.path.dirname(__file__), ".cache")
-
 os.makedirs(_CACHE_DIR, exist_ok=True)
 
-# RAM cache
+# RAM cache (url -> stream)
 _MEM_CACHE = {}
-
 
 # ==============================
 # INTERNAL HELPERS
@@ -31,7 +27,7 @@ def _cache_path(url: str) -> str:
     return os.path.join(_CACHE_DIR, _key(url) + ".json")
 
 
-def _read_disk(url: str):
+def _read_disk(url: str) -> str | None:
     path = _cache_path(url)
     if not os.path.exists(path):
         return None
@@ -39,19 +35,15 @@ def _read_disk(url: str):
     try:
         with open(path, "r") as f:
             data = json.load(f)
-
-        if time.time() - data["ts"] < _TTL:
-            return data["stream"]
+        return data.get("stream")
     except Exception:
-        pass
-
-    return None
+        return None
 
 
 def _write_disk(url: str, stream: str):
     try:
         with open(_cache_path(url), "w") as f:
-            json.dump({"stream": stream, "ts": time.time()}, f)
+            json.dump({"stream": stream}, f)
     except Exception:
         pass
 
@@ -87,15 +79,22 @@ def _extract_stream(url: str) -> str | None:
         ):
             return f["url"]
 
-    for f in data.get("formats", []):
-        if (
-            f.get("acodec") not in (None, "none")
-            and f.get("vcodec") not in (None, "none")
-            and f.get("url")
-        ):
-            return f["url"]
-
     return None
+
+
+def _stream_alive(url: str) -> bool:
+    """
+    Lightweight check: stream URL abhi bhi valid hai ya nahi
+    """
+    try:
+        p = subprocess.run(
+            ["curl", "-I", "--max-time", "5", url],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
+        )
+        return p.returncode == 0
+    except Exception:
+        return False
 
 
 # ==============================
@@ -103,26 +102,21 @@ def _extract_stream(url: str) -> str | None:
 # ==============================
 
 def get_stream(url: str) -> str | None:
-    now = time.time()
-
     # 1️⃣ RAM cache
-    cached = _MEM_CACHE.get(url)
-    if cached:
-        stream, ts = cached
-        if now - ts < _TTL:
-            return stream
+    stream = _MEM_CACHE.get(url)
+    if stream and _stream_alive(stream):
+        return stream
 
     # 2️⃣ Disk cache
     stream = _read_disk(url)
-    if stream:
-        _MEM_CACHE[url] = (stream, now)
+    if stream and _stream_alive(stream):
+        _MEM_CACHE[url] = stream
         return stream
 
-    # 3️⃣ Fresh extract
+    # 3️⃣ Extract ONLY if expired
     stream = _extract_stream(url)
     if stream:
-        _MEM_CACHE[url] = (stream, now)
+        _MEM_CACHE[url] = stream
         _write_disk(url, stream)
 
     return stream
-    
