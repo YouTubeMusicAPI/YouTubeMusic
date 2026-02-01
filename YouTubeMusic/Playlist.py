@@ -14,6 +14,9 @@ HEADERS = {
     )
 }
 
+# ─────────────────────────────
+# HELPERS
+# ─────────────────────────────
 
 def extract_playlist_id(value: str) -> str:
     value = value.strip()
@@ -61,6 +64,15 @@ def get_text(obj) -> str:
     return ""
 
 
+def make_thumbnail(video_id: str) -> str:
+    # Max quality thumbnail (auto fallback by YouTube)
+    return f"https://i.ytimg.com/vi/{video_id}/maxresdefault.jpg"
+
+
+# ─────────────────────────────
+# PARSERS
+# ─────────────────────────────
+
 def parse_normal_playlist(data: dict) -> List[Dict]:
     songs = []
     tabs = data.get("contents", {}) \
@@ -81,15 +93,18 @@ def parse_normal_playlist(data: dict) -> List[Dict]:
                     r = v.get("playlistVideoRenderer")
                     if not r:
                         continue
+
                     vid = r.get("videoId")
                     if not vid:
                         continue
+
                     songs.append({
                         "videoId": vid,
                         "title": get_text(r.get("title")),
                         "channel": get_text(r.get("shortBylineText")),
                         "duration": r.get("lengthSeconds", "N/A"),
-                        "url": f"https://music.youtube.com/watch?v={vid}"
+                        "url": f"https://music.youtube.com/watch?v={vid}",
+                        "thumbnail": make_thumbnail(vid)
                     })
     return songs
 
@@ -106,22 +121,30 @@ def parse_mix_playlist(data: dict) -> List[Dict]:
         r = item.get("playlistPanelVideoRenderer")
         if not r:
             continue
+
         vid = r.get("videoId")
         if not vid:
             continue
+
         songs.append({
             "videoId": vid,
             "title": get_text(r.get("title")),
             "channel": get_text(r.get("shortBylineText")),
             "duration": r.get("lengthSeconds", "N/A"),
-            "url": f"https://music.youtube.com/watch?v={vid}"
+            "url": f"https://music.youtube.com/watch?v={vid}",
+            "thumbnail": make_thumbnail(vid)
         })
     return songs
 
 
+# ─────────────────────────────
+# PUBLIC API
+# ─────────────────────────────
+
 async def get_playlist_songs(input_value: str) -> List[Dict]:
     playlist_id = extract_playlist_id(input_value)
 
+    # MIX / RADIO
     if playlist_id.startswith("RD"):
         video_id = extract_video_id(input_value) or playlist_id.replace("RD", "", 1)
         url = f"https://www.youtube.com/watch?v={video_id}&list={playlist_id}"
@@ -129,18 +152,23 @@ async def get_playlist_songs(input_value: str) -> List[Dict]:
         data = extract_yt_initial_data(html)
         return parse_mix_playlist(data)
 
+    # NORMAL PLAYLIST
     url = f"https://www.youtube.com/playlist?list={playlist_id}"
     html = await fetch_page(url)
     data = extract_yt_initial_data(html)
     return parse_normal_playlist(data)
 
 
+# ─────────────────────────────
+# TEST
+# ─────────────────────────────
+
 if __name__ == "__main__":
     async def run():
         playlist = input("Playlist link or ID: ")
         songs = await get_playlist_songs(playlist)
         print(len(songs))
-        print(json.dumps(songs[:5], indent=2))
+        print(json.dumps(songs[:3], indent=2))
 
     asyncio.run(run())
     
