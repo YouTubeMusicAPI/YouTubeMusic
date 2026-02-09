@@ -79,41 +79,52 @@ def _extract_stream(url: str) -> str | None:
     cmd = [
         "yt-dlp",
         "--dump-single-json",
-        "-f", "bestaudio*/best",
+        "-f", "(bestaudio)[protocol^=http]/best",
         "--no-playlist",
         "--quiet",
+        "--no-warnings",
+        "--js-runtimes", "node",  # ⭐ important
         "--extractor-args",
         "youtube:player-client=android,web,ios",
     ]
 
-    # ✅ cookies.txt use karo agar exist karta hai
     if os.path.exists(_COOKIES_FILE):
         cmd += ["--cookies", _COOKIES_FILE]
-
-    # ❗ agar cookies file nahi hai, browser try karega
     else:
         cmd += ["--cookies-from-browser", "chrome"]
 
     cmd.append(url)
 
-    p = subprocess.run(
-        cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True
-    )
+    try:
+        p = subprocess.run(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=25  # ⭐ important
+        )
+    except subprocess.TimeoutExpired:
+        return None
 
     if p.returncode != 0 or not p.stdout:
         return None
 
     data = json.loads(p.stdout)
 
+    # primary
+    if data.get("url"):
+        return data["url"]
+
+    # smarter fallback
     for f in data.get("formats", []):
-        if f.get("acodec") not in (None, "none") and f.get("url"):
+        if (
+            f.get("acodec") not in (None, "none")
+            and f.get("protocol", "").startswith("http")
+            and f.get("url")
+        ):
             return f["url"]
 
     return None
-
 
 # ==============================
 # PUBLIC API
