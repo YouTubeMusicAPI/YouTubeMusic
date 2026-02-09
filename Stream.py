@@ -13,7 +13,7 @@ async def ytdl(url: str):
     try:
         # run blocking function in background thread
         loop = asyncio.get_running_loop()
-        func = partial(get_audio_url, url, "cookies/cookies.txt")
+        func = partial(get_audio_url, url, "cookies.txt")
         stream_url = await loop.run_in_executor(None, func)
 
         if not stream_url:
