@@ -83,7 +83,7 @@ def _extract_stream(url: str) -> str | None:
         "--no-playlist",
         "--quiet",
         "--no-warnings",
-        "--js-runtimes", "node",  # ⭐ important
+        "--js-runtimes", "node",
         "--extractor-args",
         "youtube:player-client=android,web,ios",
     ]
@@ -101,7 +101,7 @@ def _extract_stream(url: str) -> str | None:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            timeout=25  # ⭐ important
+            timeout=25
         )
     except subprocess.TimeoutExpired:
         return None
@@ -111,11 +111,9 @@ def _extract_stream(url: str) -> str | None:
 
     data = json.loads(p.stdout)
 
-    # primary
     if data.get("url"):
         return data["url"]
 
-    # smarter fallback
     for f in data.get("formats", []):
         if (
             f.get("acodec") not in (None, "none")
