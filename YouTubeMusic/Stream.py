@@ -13,6 +13,10 @@ os.makedirs(_CACHE_DIR, exist_ok=True)
 
 _MEM_CACHE = {}
 
+# ✅ cookies path
+_COOKIES_FILE = os.path.join(os.path.dirname(__file__), "cookies.txt")
+
+
 # ==============================
 # HELPERS
 # ==============================
@@ -26,9 +30,6 @@ def _cache_path(url: str) -> str:
 
 
 def _extract_expire(stream_url: str) -> int | None:
-    """
-    YouTube stream URL se expire timestamp nikalta hai
-    """
     try:
         q = parse_qs(urlparse(stream_url).query)
         return int(q.get("expire", [0])[0])
@@ -46,7 +47,7 @@ def _read_cache(url: str) -> str | None:
             data = json.load(f)
 
         expire = data.get("expire", 0)
-        if time.time() < expire - 10:  # 10 sec buffer
+        if time.time() < expire - 10:
             return data.get("url")
 
     except Exception:
@@ -70,6 +71,10 @@ def _write_cache(url: str, stream_url: str):
         pass
 
 
+# ==============================
+# 🎯 STREAM EXTRACTOR WITH COOKIES
+# ==============================
+
 def _extract_stream(url: str) -> str | None:
     cmd = [
         "yt-dlp",
@@ -79,8 +84,17 @@ def _extract_stream(url: str) -> str | None:
         "--quiet",
         "--extractor-args",
         "youtube:player-client=android,web,ios",
-        url
     ]
+
+    # ✅ cookies.txt use karo agar exist karta hai
+    if os.path.exists(_COOKIES_FILE):
+        cmd += ["--cookies", _COOKIES_FILE]
+
+    # ❗ agar cookies file nahi hai, browser try karega
+    else:
+        cmd += ["--cookies-from-browser", "chrome"]
+
+    cmd.append(url)
 
     p = subprocess.run(
         cmd,
@@ -106,20 +120,17 @@ def _extract_stream(url: str) -> str | None:
 # ==============================
 
 def get_stream(url: str) -> str | None:
-    # 1️⃣ RAM cache
     cached = _MEM_CACHE.get(url)
     if cached:
         expire = _extract_expire(cached)
         if expire and time.time() < expire - 10:
             return cached
 
-    # 2️⃣ Disk cache
     cached = _read_cache(url)
     if cached:
         _MEM_CACHE[url] = cached
         return cached
 
-    # 3️⃣ New extract
     stream = _extract_stream(url)
     if stream:
         _MEM_CACHE[url] = stream
