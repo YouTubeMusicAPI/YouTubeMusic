@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from YouTubeMusic.Streams import get_audio_url
+from YouTubeMusic.Stream import get_audio_url
 
 logging.basicConfig(level=logging.INFO)
 
