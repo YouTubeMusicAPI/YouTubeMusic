@@ -3,7 +3,6 @@ import json
 import os
 import hashlib
 import time
-import re
 from urllib.parse import urlparse, parse_qs
 
 __all__ = ["get_stream"]
@@ -12,10 +11,6 @@ _CACHE_DIR = os.path.join(os.path.dirname(__file__), ".cache")
 os.makedirs(_CACHE_DIR, exist_ok=True)
 
 _MEM_CACHE = {}
-
-# ✅ cookies path
-_COOKIES_FILE = os.path.join(os.path.dirname(__file__), "cookies.txt")
-
 
 # ==============================
 # HELPERS
@@ -72,10 +67,10 @@ def _write_cache(url: str, stream_url: str):
 
 
 # ==============================
-# 🎯 STREAM EXTRACTOR WITH COOKIES
+# 🎯 STREAM EXTRACTOR
 # ==============================
 
-def _extract_stream(url: str) -> str | None:
+def _extract_stream(url: str, cookies: str | None = None) -> str | None:
     cmd = [
         "yt-dlp",
         "--dump-single-json",
@@ -88,10 +83,9 @@ def _extract_stream(url: str) -> str | None:
         "youtube:player-client=android,web,ios",
     ]
 
-    if os.path.exists(_COOKIES_FILE):
-        cmd += ["--cookies", _COOKIES_FILE]
-    else:
-        cmd += ["--cookies-from-browser", "chrome"]
+    # ✅ use cookies if provided
+    if cookies and os.path.exists(cookies):
+        cmd += ["--cookies", cookies]
 
     cmd.append(url)
 
@@ -124,11 +118,12 @@ def _extract_stream(url: str) -> str | None:
 
     return None
 
+
 # ==============================
 # PUBLIC API
 # ==============================
 
-def get_stream(url: str) -> str | None:
+def get_stream(url: str, cookies: str | None = None) -> str | None:
     cached = _MEM_CACHE.get(url)
     if cached:
         expire = _extract_expire(cached)
@@ -140,7 +135,7 @@ def get_stream(url: str) -> str | None:
         _MEM_CACHE[url] = cached
         return cached
 
-    stream = _extract_stream(url)
+    stream = _extract_stream(url, cookies)
     if stream:
         _MEM_CACHE[url] = stream
         _write_cache(url, stream)
