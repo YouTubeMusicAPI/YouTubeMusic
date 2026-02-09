@@ -3,14 +3,20 @@ import json
 
 
 def get_audio_url(video_url: str, cookies_path: str | None = None) -> str | None:
+    """
+    Extract direct audio stream URL using yt-dlp.
+    Returns best playable URL or None.
+    """
+
     try:
         cmd = [
             "yt-dlp",
             "-j",
-            "-f", "bestaudio[ext=m4a]/bestaudio",
+            "-f", "bestaudio[acodec!=none]/bestaudio",
             "--no-playlist",
             "--quiet",
             "--no-warnings",
+            "--geo-bypass",
             "--no-check-certificate",
         ]
 
@@ -33,18 +39,23 @@ def get_audio_url(video_url: str, cookies_path: str | None = None) -> str | None
 
         data = json.loads(result.stdout)
 
-        # ⭐ primary
-        if data.get("url"):
-            return data["url"]
+        # ✅ Primary direct URL
+        url = data.get("url")
+        if url:
+            return url
 
-        # ⭐ fallback
-        for f in data.get("formats", []):
-            if f.get("url"):
+        # ✅ Backup → best format with audio
+        formats = data.get("formats", [])
+        for f in formats:
+            if f.get("acodec") != "none" and f.get("url"):
                 return f["url"]
 
+        return None
+
+    except subprocess.TimeoutExpired:
+        print("❌ yt-dlp timeout")
         return None
 
     except Exception as e:
         print(f"❌ Error extracting stream URL: {e}")
         return None
-      
