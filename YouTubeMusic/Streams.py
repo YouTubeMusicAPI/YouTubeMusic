@@ -18,7 +18,7 @@ def get_audio_url(video_url: str, cookies_path: str | None = None) -> str | None
             base_cmd += ["--cookies", cookies_path]
 
         # ⭐ Try strict audio first
-        cmd = base_cmd + ["-f", "bestaudio", video_url]
+        cmd = base_cmd + ["-f", "(bestaudio)[protocol^=http]/best", video_url]
 
         result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
