@@ -3,16 +3,10 @@ import json
 
 
 def get_audio_url(video_url: str, cookies_path: str | None = None) -> str | None:
-    """
-    Extract direct audio stream URL using yt-dlp.
-    Returns best playable URL or None.
-    """
-
     try:
-        cmd = [
+        base_cmd = [
             "yt-dlp",
             "-j",
-            "-f", "bestaudio[acodec!=none]/bestaudio",
             "--no-playlist",
             "--quiet",
             "--no-warnings",
@@ -21,41 +15,36 @@ def get_audio_url(video_url: str, cookies_path: str | None = None) -> str | None
         ]
 
         if cookies_path:
-            cmd += ["--cookies", cookies_path]
+            base_cmd += ["--cookies", cookies_path]
 
-        cmd.append(video_url)
+        # ⭐ Try strict audio first
+        cmd = base_cmd + ["-f", "bestaudio", video_url]
 
-        result = subprocess.run(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            timeout=30
-        )
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
+        # ⭐ If failed → try best (audio+video)
         if result.returncode != 0:
-            print("❌ yt-dlp error:", result.stderr.strip())
-            return None
+            cmd = base_cmd + ["-f", "best", video_url]
+            result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+            if result.returncode != 0:
+                print("❌ yt-dlp error:", result.stderr.strip())
+                return None
 
         data = json.loads(result.stdout)
 
-        # ✅ Primary direct URL
-        url = data.get("url")
-        if url:
-            return url
+        # primary
+        if data.get("url"):
+            return data["url"]
 
-        # ✅ Backup → best format with audio
-        formats = data.get("formats", [])
-        for f in formats:
-            if f.get("acodec") != "none" and f.get("url"):
+        # fallback
+        for f in data.get("formats", []):
+            if f.get("url"):
                 return f["url"]
 
-        return None
-
-    except subprocess.TimeoutExpired:
-        print("❌ yt-dlp timeout")
         return None
 
     except Exception as e:
         print(f"❌ Error extracting stream URL: {e}")
         return None
+        
