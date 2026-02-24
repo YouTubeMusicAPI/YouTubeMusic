@@ -1,3 +1,5 @@
+# Search.py
+
 from urllib.parse import quote_plus, quote
 import httpx
 import re
@@ -6,12 +8,13 @@ import asyncio
 import os
 
 # ─────────────────────────────
-# CONFIG (ENV SAFE)
+# CONFIG
 # ─────────────────────────────
 UPSTASH_REDIS_REST_URL = os.getenv(
     "UPSTASH_REDIS_REST_URL",
     "https://accepted-woodcock-22573.upstash.io"
 )
+
 UPSTASH_REDIS_REST_TOKEN = os.getenv(
     "UPSTASH_REDIS_REST_TOKEN",
     "AlgtAAIgcDJ6f5vhlO6Q9Af3w4dwAI4dvtMnh0IJCpKbAZDWe3Ac9w"
@@ -29,11 +32,7 @@ HEADERS = {
 YOUTUBE_SEARCH_URL = "https://www.youtube.com/results?search_query={}"
 YT_REGEX = re.compile(r"ytInitialData\s*=\s*(\{.+?\});", re.DOTALL)
 
-_client = httpx.AsyncClient(
-    http2=True,
-    timeout=10,
-    headers=HEADERS
-)
+_client = httpx.AsyncClient(http2=True, timeout=15, headers=HEADERS)
 
 # ─────────────────────────────
 # CACHE
@@ -43,6 +42,9 @@ LOCKS = {}
 CACHE_LIMIT = 1000
 
 
+# ─────────────────────────────
+# UTILS
+# ─────────────────────────────
 def normalize(q: str) -> str:
     return re.sub(r"\s+", " ", q.lower().strip())
 
@@ -51,12 +53,28 @@ def format_views(text: str) -> str:
     return text.replace(" views", "").replace(" view", "")
 
 
+def extract_channel_name(v: dict) -> str:
+    for key in ["ownerText", "longBylineText", "shortBylineText"]:
+        data = v.get(key, {})
+        if data.get("runs"):
+            return data["runs"][0].get("text", "Unknown")
+    return "Unknown"
+
+
+def safe_get(obj, *keys):
+    for key in keys:
+        if not isinstance(obj, dict):
+            return {}
+        obj = obj.get(key, {})
+    return obj
+
+
 # ─────────────────────────────
-# REDIS HELPERS
+# REDIS
 # ─────────────────────────────
 async def redis_get(key: str):
-    key = quote(key)
     try:
+        key = quote(key)
         r = await _client.get(
             f"{UPSTASH_REDIS_REST_URL}/get/{key}",
             headers=REDIS_HEADERS
@@ -69,11 +87,11 @@ async def redis_get(key: str):
 
 
 async def redis_set(key: str, value):
-    key = quote(key)
-    if isinstance(value, bytes):
-        value = value.decode()
-
     try:
+        key = quote(key)
+        if isinstance(value, bytes):
+            value = value.decode()
+
         await _client.post(
             f"{UPSTASH_REDIS_REST_URL}/set/{key}",
             headers=REDIS_HEADERS,
@@ -84,12 +102,11 @@ async def redis_set(key: str, value):
 
 
 async def close_client():
-    """Call this on shutdown"""
     await _client.aclose()
 
 
 # ─────────────────────────────
-# MAIN SEARCH ENGINE
+# MAIN SEARCH
 # ─────────────────────────────
 async def Search(query: str, limit: int = 1):
     if not query:
@@ -97,11 +114,11 @@ async def Search(query: str, limit: int = 1):
 
     qkey = normalize(query)
 
-    # ── RAM CACHE
+    # RAM CACHE
     if qkey in MEMORY_CACHE:
         return MEMORY_CACHE[qkey]
 
-    # ── REDIS CACHE
+    # REDIS CACHE
     cached = await redis_get(qkey)
     if cached:
         data = orjson.loads(cached.encode())
@@ -109,6 +126,7 @@ async def Search(query: str, limit: int = 1):
         return data
 
     lock = LOCKS.setdefault(qkey, asyncio.Lock())
+
     async with lock:
         try:
             url = YOUTUBE_SEARCH_URL.format(quote_plus(query))
@@ -119,29 +137,39 @@ async def Search(query: str, limit: int = 1):
                 return {"error": "YouTube layout changed", "main_results": [], "suggested": []}
 
             raw = orjson.loads(match.group(1))
-            contents = raw["contents"]["twoColumnSearchResultsRenderer"][
-                "primaryContents"]["sectionListRenderer"]["contents"
-            ]
+
+            contents = safe_get(
+                raw,
+                "contents",
+                "twoColumnSearchResultsRenderer",
+                "primaryContents",
+                "sectionListRenderer",
+                "contents"
+            )
 
             results = []
 
             for section in contents:
-                for item in section.get("itemSectionRenderer", {}).get("contents", []):
+                items = safe_get(section, "itemSectionRenderer", "contents")
+
+                for item in items:
                     v = item.get("videoRenderer")
                     if not v:
                         continue
 
-                    video_id = v["videoId"]
+                    video_id = v.get("videoId")
+                    if not video_id:
+                        continue
 
                     results.append({
-                        "title": v["title"]["runs"][0]["text"],
+                        "title": safe_get(v, "title", "runs")[0]["text"]
+                                 if safe_get(v, "title", "runs") else "Unknown",
                         "url": f"https://www.youtube.com/watch?v={video_id}",
                         "duration": v.get("lengthText", {}).get("simpleText", "LIVE"),
-                        "channel": v.get("ownerText", {}).get("runs", [{}])[0].get("text", "Unknown"),
+                        "channel": extract_channel_name(v),
                         "views": format_views(
                             v.get("viewCountText", {}).get("simpleText", "0 views")
                         ),
-                        # safer than maxres
                         "thumbnail": f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
                     })
 
@@ -153,7 +181,7 @@ async def Search(query: str, limit: int = 1):
                 "suggested": results[limit:limit + 5]
             }
 
-            # ── CACHE CLEANUP
+            # Cache cleanup
             if len(MEMORY_CACHE) >= CACHE_LIMIT:
                 MEMORY_CACHE.clear()
 
@@ -164,6 +192,6 @@ async def Search(query: str, limit: int = 1):
 
         finally:
             LOCKS.pop(qkey, None)
-            
+
 
 __all__ = ["Search", "close_client"]
