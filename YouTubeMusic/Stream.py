@@ -11,6 +11,8 @@ _CACHE_DIR = os.path.join(os.path.dirname(__file__), ".cache")
 os.makedirs(_CACHE_DIR, exist_ok=True)
 
 _MEM_CACHE = {}
+_CACHE_LIMIT = 500  # prevent unlimited RAM growth
+
 
 # ==============================
 # HELPERS
@@ -27,13 +29,15 @@ def _cache_path(url: str) -> str:
 def _extract_expire(stream_url: str) -> int | None:
     try:
         q = parse_qs(urlparse(stream_url).query)
-        return int(q.get("expire", [0])[0])
+        expire = int(q.get("expire", [0])[0])
+        return expire if expire > int(time.time()) else None
     except Exception:
         return None
 
 
 def _read_cache(url: str) -> str | None:
     path = _cache_path(url)
+
     if not os.path.exists(path):
         return None
 
@@ -42,11 +46,18 @@ def _read_cache(url: str) -> str | None:
             data = json.load(f)
 
         expire = data.get("expire", 0)
-        if time.time() < expire - 10:
+
+        # 15 sec safety buffer
+        if time.time() < expire - 15:
             return data.get("url")
+        else:
+            os.remove(path)
 
     except Exception:
-        pass
+        try:
+            os.remove(path)
+        except Exception:
+            pass
 
     return None
 
@@ -74,16 +85,15 @@ def _extract_stream(url: str, cookies: str | None = None) -> str | None:
     cmd = [
         "yt-dlp",
         "--dump-single-json",
-        "-f", "(bestaudio)[protocol^=http]/best",
+        "-f", "bestaudio[protocol^=http]/best",
         "--no-playlist",
         "--quiet",
         "--no-warnings",
-        "--js-runtimes", "node",
+        "--no-check-certificates",
         "--extractor-args",
-        "youtube:player-client=android,web,ios",
+        "youtube:player-client=android,web",
     ]
 
-    # ✅ use cookies if provided
     if cookies and os.path.exists(cookies):
         cmd += ["--cookies", cookies]
 
@@ -95,7 +105,7 @@ def _extract_stream(url: str, cookies: str | None = None) -> str | None:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            timeout=25
+            timeout=30
         )
     except subprocess.TimeoutExpired:
         return None
@@ -103,11 +113,16 @@ def _extract_stream(url: str, cookies: str | None = None) -> str | None:
     if p.returncode != 0 or not p.stdout:
         return None
 
-    data = json.loads(p.stdout)
+    try:
+        data = json.loads(p.stdout)
+    except Exception:
+        return None
 
+    # direct url if available
     if data.get("url"):
         return data["url"]
 
+    # fallback formats
     for f in data.get("formats", []):
         if (
             f.get("acodec") not in (None, "none")
@@ -124,21 +139,30 @@ def _extract_stream(url: str, cookies: str | None = None) -> str | None:
 # ==============================
 
 def get_stream(url: str, cookies: str | None = None) -> str | None:
+    now = time.time()
+
+    # MEMORY CACHE
     cached = _MEM_CACHE.get(url)
     if cached:
         expire = _extract_expire(cached)
-        if expire and time.time() < expire - 10:
+        if expire and now < expire - 15:
             return cached
+        else:
+            _MEM_CACHE.pop(url, None)
 
+    # FILE CACHE
     cached = _read_cache(url)
     if cached:
         _MEM_CACHE[url] = cached
         return cached
 
+    # NEW EXTRACTION
     stream = _extract_stream(url, cookies)
     if stream:
+        if len(_MEM_CACHE) >= _CACHE_LIMIT:
+            _MEM_CACHE.clear()
+
         _MEM_CACHE[url] = stream
         _write_cache(url, stream)
 
     return stream
-    
