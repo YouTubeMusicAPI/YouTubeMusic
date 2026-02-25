@@ -3,7 +3,7 @@ from .Search import Search, close_client
 from .Models import format_dur, process_video, extract_artist
 from .Utils import parse_dur, format_ind, format_views
 
-__version__ = "2026.2.09"
+__version__ = "2026.2.25"
 __author__ = "ABHISHEK THAKUR"
 
 try:
