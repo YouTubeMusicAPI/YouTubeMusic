@@ -1,17 +1,21 @@
 import subprocess
-import json
 import os
 import hashlib
+import json
 import time
 from urllib.parse import urlparse, parse_qs
 
 __all__ = ["get_stream"]
 
+# ==============================
+# CACHE CONFIG
+# ==============================
+
 _CACHE_DIR = os.path.join(os.path.dirname(__file__), ".cache")
 os.makedirs(_CACHE_DIR, exist_ok=True)
 
 _MEM_CACHE = {}
-_CACHE_LIMIT = 500  # prevent unlimited RAM growth
+_CACHE_LIMIT = 500
 
 
 # ==============================
@@ -47,12 +51,10 @@ def _read_cache(url: str) -> str | None:
 
         expire = data.get("expire", 0)
 
-        # 15 sec safety buffer
         if time.time() < expire - 15:
             return data.get("url")
         else:
             os.remove(path)
-
     except Exception:
         try:
             os.remove(path)
@@ -78,29 +80,26 @@ def _write_cache(url: str, stream_url: str):
 
 
 # ==============================
-# 🎯 STREAM EXTRACTOR
+# STREAM EXTRACTION
 # ==============================
 
-def _extract_stream(url: str, cookies: str | None = None) -> str | None:
+def _run_yt_dlp(url: str, cookies: str | None = None) -> str | None:
     cmd = [
         "yt-dlp",
-        "--dump-single-json",
-        "-f", "bestaudio[protocol^=http]/best",
+        "--js-runtimes", "node",
+        "--remote-components", "ejs:github",
+        "-f", "bestaudio[ext=m4a]/bestaudio/best",
         "--no-playlist",
-        "--quiet",
-        "--no-warnings",
-        "--no-check-certificates",
-        "--extractor-args",
-        "youtube:player-client=android,web",
+        "-g",
+        url
     ]
 
     if cookies and os.path.exists(cookies):
-        cmd += ["--cookies", cookies]
-
-    cmd.append(url)
+        cmd.insert(1, "--cookies")
+        cmd.insert(2, cookies)
 
     try:
-        p = subprocess.run(
+        result = subprocess.run(
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -110,26 +109,8 @@ def _extract_stream(url: str, cookies: str | None = None) -> str | None:
     except subprocess.TimeoutExpired:
         return None
 
-    if p.returncode != 0 or not p.stdout:
-        return None
-
-    try:
-        data = json.loads(p.stdout)
-    except Exception:
-        return None
-
-    # direct url if available
-    if data.get("url"):
-        return data["url"]
-
-    # fallback formats
-    for f in data.get("formats", []):
-        if (
-            f.get("acodec") not in (None, "none")
-            and f.get("protocol", "").startswith("http")
-            and f.get("url")
-        ):
-            return f["url"]
+    if result.returncode == 0 and result.stdout:
+        return result.stdout.strip().split("\n")[0]
 
     return None
 
@@ -138,10 +119,10 @@ def _extract_stream(url: str, cookies: str | None = None) -> str | None:
 # PUBLIC API
 # ==============================
 
-def get_stream(url: str, cookies: str | None = None) -> str | None:
+def get_stream(url: str, cookies: str = "cookies.txt") -> str | None:
     now = time.time()
 
-    # MEMORY CACHE
+    # Memory cache
     cached = _MEM_CACHE.get(url)
     if cached:
         expire = _extract_expire(cached)
@@ -150,14 +131,19 @@ def get_stream(url: str, cookies: str | None = None) -> str | None:
         else:
             _MEM_CACHE.pop(url, None)
 
-    # FILE CACHE
+    # File cache
     cached = _read_cache(url)
     if cached:
         _MEM_CACHE[url] = cached
         return cached
 
-    # NEW EXTRACTION
-    stream = _extract_stream(url, cookies)
+    # New extraction
+    stream = _run_yt_dlp(url)
+
+    # Retry with cookies if needed
+    if not stream and os.path.exists(cookies):
+        stream = _run_yt_dlp(url, cookies)
+
     if stream:
         if len(_MEM_CACHE) >= _CACHE_LIMIT:
             _MEM_CACHE.clear()
