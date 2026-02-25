@@ -1,28 +1,28 @@
-import requests
-from colorama import init, Fore, Style
+import httpx
 from YouTubeMusic import __version__, __author__
 
-init(autoreset=True)
 
-def check_latest_version(pkg_name="YouTubeMusic"):
+PYPI_URL = "https://pypi.org/pypi/{}/json"
+
+
+async def check_latest_version(pkg_name: str = "YouTubeMusic"):
     try:
-        response = requests.get(f"https://pypi.org/pypi/{pkg_name}/json", timeout=3)
-        if response.status_code == 200:
-            return response.json()["info"]["version"]
+        async with httpx.AsyncClient(timeout=3) as client:
+            r = await client.get(PYPI_URL.format(pkg_name))
+            if r.status_code == 200:
+                return r.json().get("info", {}).get("version")
     except Exception:
         return None
 
-def print_startup_message():
-    print(Fore.GREEN + "✅  YouTubeMusic started...\n")
+    return None
 
-    print(Fore.CYAN + f"Version : {__version__}")
-    print(Fore.CYAN + f"Author  : {__author__}")
-    print(Fore.CYAN + "License : MIT")
-    print(Fore.CYAN + "GitHub  : https://github.com/YouTubeMusicAPI/YouTubeMusic")
 
-    latest = check_latest_version("YouTubeMusic")
-    if latest and latest != __version__:
-        print(Fore.YELLOW + "\nUpdate Available!")
-        print(Fore.YELLOW + f"New YouTubeMusic v{latest} is now available!")
-    else:
-        print(Fore.GREEN + "\nYou are using the latest version!")
+async def get_startup_info():
+    latest = await check_latest_version("YouTubeMusic")
+
+    return {
+        "current_version": __version__,
+        "latest_version": latest,
+        "author": __author__,
+        "update_available": bool(latest and latest != __version__),
+    }
