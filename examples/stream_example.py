@@ -1,6 +1,6 @@
 import asyncio
 import os
-from YouTubeMusic import get_stream, get_video_stream
+from YouTubeMusic.Stream import get_stream, get_video_stream
 
 
 async def main():
