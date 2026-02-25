@@ -1,4 +1,4 @@
-import subprocess
+import asyncio
 import os
 import hashlib
 import json
@@ -7,20 +7,12 @@ from urllib.parse import urlparse, parse_qs
 
 __all__ = ["get_stream"]
 
-# ==============================
-# CACHE CONFIG
-# ==============================
-
 _CACHE_DIR = os.path.join(os.path.dirname(__file__), ".cache")
 os.makedirs(_CACHE_DIR, exist_ok=True)
 
 _MEM_CACHE = {}
 _CACHE_LIMIT = 500
 
-
-# ==============================
-# HELPERS
-# ==============================
 
 def _key(url: str) -> str:
     return hashlib.md5(url.encode()).hexdigest()
@@ -71,27 +63,29 @@ def _write_cache(url: str, stream_url: str):
 
     try:
         with open(_cache_path(url), "w") as f:
-            json.dump({
-                "url": stream_url,
-                "expire": expire
-            }, f)
+            json.dump(
+                {
+                    "url": stream_url,
+                    "expire": expire,
+                },
+                f,
+            )
     except Exception:
         pass
 
 
-# ==============================
-# STREAM EXTRACTION
-# ==============================
-
-def _run_yt_dlp(url: str, cookies: str | None = None) -> str | None:
+async def _run_yt_dlp(url: str, cookies: str | None = None) -> str | None:
     cmd = [
         "yt-dlp",
-        "--js-runtimes", "node",
-        "--remote-components", "ejs:github",
-        "-f", "bestaudio[ext=m4a]/bestaudio/best",
+        "--js-runtimes",
+        "node",
+        "--remote-components",
+        "ejs:github",
+        "-f",
+        "bestaudio[ext=m4a]/bestaudio/best",
         "--no-playlist",
         "-g",
-        url
+        url,
     ]
 
     if cookies:
@@ -99,34 +93,33 @@ def _run_yt_dlp(url: str, cookies: str | None = None) -> str | None:
             cmd.insert(1, "--cookies")
             cmd.insert(2, cookies)
         else:
-            print(f"⚠ Cookies file not found: {cookies}")
             return None
 
     try:
-        result = subprocess.run(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            timeout=30
+        process = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
-    except subprocess.TimeoutExpired:
+
+        try:
+            stdout, _ = await asyncio.wait_for(process.communicate(), timeout=30)
+        except asyncio.TimeoutError:
+            process.kill()
+            return None
+
+    except Exception:
         return None
 
-    if result.returncode == 0 and result.stdout:
-        return result.stdout.strip().split("\n")[0]
+    if process.returncode == 0 and stdout:
+        return stdout.decode().strip().split("\n")[0]
 
     return None
 
 
-# ==============================
-# PUBLIC API
-# ==============================
-
-def get_stream(url: str, cookies: str | None = None) -> str | None:
+async def get_stream(url: str, cookies: str | None = None) -> str | None:
     now = time.time()
 
-    # Memory cache
     cached = _MEM_CACHE.get(url)
     if cached:
         expire = _extract_expire(cached)
@@ -135,14 +128,12 @@ def get_stream(url: str, cookies: str | None = None) -> str | None:
         else:
             _MEM_CACHE.pop(url, None)
 
-    # File cache
     cached = _read_cache(url)
     if cached:
         _MEM_CACHE[url] = cached
         return cached
 
-    # New extraction
-    stream = _run_yt_dlp(url, cookies)
+    stream = await _run_yt_dlp(url, cookies)
 
     if stream:
         if len(_MEM_CACHE) >= _CACHE_LIMIT:
