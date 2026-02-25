@@ -55,10 +55,11 @@ asyncio.run(main())
 ```python
 import asyncio
 from YouTubeMusic.Stream import get_stream
+cookies_path = ""
 
 async def main():
     url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-    stream_url = await get_stream(url)
+    stream_url = await get_stream(url, cookies_path)
     print(stream_url)
 
 asyncio.run(main())
@@ -115,10 +116,10 @@ asyncio.run(main())
 ```python
 import asyncio
 from YouTubeMusic.Video_Stream import get_video_audio_urls
-
+cookies_path = ""
 async def main():
     video_url, audio_url = await get_video_audio_urls(
-        "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+        "https://www.youtube.com/watch?v=dQw4w9WgXcQ", cookies_path
     )
     print(video_url)
     print(audio_url)
