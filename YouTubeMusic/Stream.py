@@ -94,9 +94,13 @@ def _run_yt_dlp(url: str, cookies: str | None = None) -> str | None:
         url
     ]
 
-    if cookies and os.path.exists(cookies):
-        cmd.insert(1, "--cookies")
-        cmd.insert(2, cookies)
+    if cookies:
+        if os.path.exists(cookies):
+            cmd.insert(1, "--cookies")
+            cmd.insert(2, cookies)
+        else:
+            print(f"⚠ Cookies file not found: {cookies}")
+            return None
 
     try:
         result = subprocess.run(
@@ -119,7 +123,7 @@ def _run_yt_dlp(url: str, cookies: str | None = None) -> str | None:
 # PUBLIC API
 # ==============================
 
-def get_stream(url: str, cookies: str = "cookies.txt") -> str | None:
+def get_stream(url: str, cookies: str | None = None) -> str | None:
     now = time.time()
 
     # Memory cache
@@ -138,11 +142,7 @@ def get_stream(url: str, cookies: str = "cookies.txt") -> str | None:
         return cached
 
     # New extraction
-    stream = _run_yt_dlp(url)
-
-    # Retry with cookies if needed
-    if not stream and os.path.exists(cookies):
-        stream = _run_yt_dlp(url, cookies)
+    stream = _run_yt_dlp(url, cookies)
 
     if stream:
         if len(_MEM_CACHE) >= _CACHE_LIMIT:
