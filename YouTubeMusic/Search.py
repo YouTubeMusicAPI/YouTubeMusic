@@ -1,5 +1,3 @@
-# Search.py
-
 from urllib.parse import quote_plus, quote
 import httpx
 import re
@@ -7,26 +5,12 @@ import orjson
 import asyncio
 import os
 
-# ─────────────────────────────
-# CONFIG
-# ─────────────────────────────
-UPSTASH_REDIS_REST_URL = os.getenv(
-    "UPSTASH_REDIS_REST_URL",
-    "https://accepted-woodcock-22573.upstash.io"
-)
-
-UPSTASH_REDIS_REST_TOKEN = os.getenv(
-    "UPSTASH_REDIS_REST_TOKEN",
-    "AlgtAAIgcDJ6f5vhlO6Q9Af3w4dwAI4dvtMnh0IJCpKbAZDWe3Ac9w"
-)
-
-REDIS_HEADERS = {
-    "Authorization": f"Bearer {UPSTASH_REDIS_REST_TOKEN}"
-}
+UPSTASH_REDIS_REST_URL = os.getenv("UPSTASH_REDIS_REST_URL")
+UPSTASH_REDIS_REST_TOKEN = os.getenv("UPSTASH_REDIS_REST_TOKEN")
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0",
-    "Accept-Language": "en-US,en;q=0.9"
+    "Accept-Language": "en-US,en;q=0.9",
 }
 
 YOUTUBE_SEARCH_URL = "https://www.youtube.com/results?search_query={}"
@@ -34,17 +18,10 @@ YT_REGEX = re.compile(r"ytInitialData\s*=\s*(\{.+?\});", re.DOTALL)
 
 _client = httpx.AsyncClient(http2=True, timeout=15, headers=HEADERS)
 
-# ─────────────────────────────
-# CACHE
-# ─────────────────────────────
 MEMORY_CACHE = {}
 LOCKS = {}
-CACHE_LIMIT = 1000
 
 
-# ─────────────────────────────
-# UTILS
-# ─────────────────────────────
 def normalize(q: str) -> str:
     return re.sub(r"\s+", " ", q.lower().strip())
 
@@ -54,7 +31,7 @@ def format_views(text: str) -> str:
 
 
 def extract_channel_name(v: dict) -> str:
-    for key in ["ownerText", "longBylineText", "shortBylineText"]:
+    for key in ("ownerText", "longBylineText", "shortBylineText"):
         data = v.get(key, {})
         if data.get("runs"):
             return data["runs"][0].get("text", "Unknown")
@@ -69,34 +46,45 @@ def safe_get(obj, *keys):
     return obj
 
 
-# ─────────────────────────────
-# REDIS
-# ─────────────────────────────
 async def redis_get(key: str):
+    if not UPSTASH_REDIS_REST_URL or not UPSTASH_REDIS_REST_TOKEN:
+        return None
+
     try:
+        headers = {"Authorization": f"Bearer {UPSTASH_REDIS_REST_TOKEN}"}
         key = quote(key)
-        r = await _client.get(
-            f"{UPSTASH_REDIS_REST_URL}/get/{key}",
-            headers=REDIS_HEADERS
-        )
+
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.get(
+                f"{UPSTASH_REDIS_REST_URL}/get/{key}",
+                headers=headers,
+            )
+
         if r.status_code == 200:
             return r.json().get("result")
     except Exception:
         pass
+
     return None
 
 
 async def redis_set(key: str, value):
+    if not UPSTASH_REDIS_REST_URL or not UPSTASH_REDIS_REST_TOKEN:
+        return
+
     try:
+        headers = {"Authorization": f"Bearer {UPSTASH_REDIS_REST_TOKEN}"}
         key = quote(key)
+
         if isinstance(value, bytes):
             value = value.decode()
 
-        await _client.post(
-            f"{UPSTASH_REDIS_REST_URL}/set/{key}",
-            headers=REDIS_HEADERS,
-            json={"value": value}
-        )
+        async with httpx.AsyncClient(timeout=10) as client:
+            await client.post(
+                f"{UPSTASH_REDIS_REST_URL}/set/{key}",
+                headers=headers,
+                json={"value": value},
+            )
     except Exception:
         pass
 
@@ -105,20 +93,15 @@ async def close_client():
     await _client.aclose()
 
 
-# ─────────────────────────────
-# MAIN SEARCH
-# ─────────────────────────────
 async def Search(query: str, limit: int = 1):
     if not query:
         return {"main_results": [], "suggested": []}
 
     qkey = normalize(query)
 
-    # RAM CACHE
     if qkey in MEMORY_CACHE:
         return MEMORY_CACHE[qkey]
 
-    # REDIS CACHE
     cached = await redis_get(qkey)
     if cached:
         data = orjson.loads(cached.encode())
@@ -134,7 +117,7 @@ async def Search(query: str, limit: int = 1):
 
             match = YT_REGEX.search(r.text)
             if not match:
-                return {"error": "YouTube layout changed", "main_results": [], "suggested": []}
+                return {"main_results": [], "suggested": []}
 
             raw = orjson.loads(match.group(1))
 
@@ -144,7 +127,7 @@ async def Search(query: str, limit: int = 1):
                 "twoColumnSearchResultsRenderer",
                 "primaryContents",
                 "sectionListRenderer",
-                "contents"
+                "contents",
             )
 
             results = []
@@ -161,29 +144,29 @@ async def Search(query: str, limit: int = 1):
                     if not video_id:
                         continue
 
-                    results.append({
-                        "title": safe_get(v, "title", "runs")[0]["text"]
-                                 if safe_get(v, "title", "runs") else "Unknown",
-                        "url": f"https://www.youtube.com/watch?v={video_id}",
-                        "duration": v.get("lengthText", {}).get("simpleText", "LIVE"),
-                        "channel": extract_channel_name(v),
-                        "views": format_views(
-                            v.get("viewCountText", {}).get("simpleText", "0 views")
-                        ),
-                        "thumbnail": f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
-                    })
+                    title_data = safe_get(v, "title", "runs")
+                    title = title_data[0]["text"] if title_data else "Unknown"
+
+                    results.append(
+                        {
+                            "title": title,
+                            "url": f"https://www.youtube.com/watch?v={video_id}",
+                            "duration": v.get("lengthText", {}).get("simpleText", "LIVE"),
+                            "channel": extract_channel_name(v),
+                            "views": format_views(
+                                v.get("viewCountText", {}).get("simpleText", "0 views")
+                            ),
+                            "thumbnail": f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg",
+                        }
+                    )
 
                     if len(results) >= limit + 5:
                         break
 
             output = {
                 "main_results": results[:limit],
-                "suggested": results[limit:limit + 5]
+                "suggested": results[limit : limit + 5],
             }
-
-            # Cache cleanup
-            if len(MEMORY_CACHE) >= CACHE_LIMIT:
-                MEMORY_CACHE.clear()
 
             MEMORY_CACHE[qkey] = output
             await redis_set(qkey, orjson.dumps(output))
