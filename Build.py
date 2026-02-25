@@ -2,49 +2,61 @@ import os
 import shutil
 import subprocess
 import sys
-
+import glob
 
 DIST_DIR = "dist"
 BUILD_DIR = "build"
-EGG_INFO = "YouTubeMusic.egg-info"
+EGG_INFO_SUFFIX = ".egg-info"
 
 
 def clean():
-    for path in (DIST_DIR, BUILD_DIR, EGG_INFO):
+    for path in (DIST_DIR, BUILD_DIR):
         if os.path.exists(path):
             shutil.rmtree(path)
+    for item in os.listdir():
+        if item.endswith(EGG_INFO_SUFFIX):
+            shutil.rmtree(item)
 
 
 def run_command(command):
+    subprocess.run(command, check=True)
+
+
+def check_tools():
     try:
-        subprocess.run(command, check=True)
-    except subprocess.CalledProcessError as e:
-        print(f"Command failed: {' '.join(command)}")
-        sys.exit(e.returncode)
+        import build
+        import twine
+    except ImportError:
+        sys.exit(1)
 
 
-def build():
+def build_package():
     run_command([sys.executable, "-m", "build"])
 
 
-def upload():
-    run_command(["twine", "upload", "dist/*"])
+def upload_package(test=False):
+    dist_files = glob.glob("dist/*")
+    if not dist_files:
+        sys.exit(1)
+
+    command = [sys.executable, "-m", "twine", "upload"]
+    if test:
+        command += ["--repository", "testpypi"]
+    command += dist_files
+
+    run_command(command)
 
 
-def main(upload_to_pypi: bool = False):
-    print("Cleaning previous builds...")
+def main(upload=False, test=False):
+    check_tools()
     clean()
-
-    print("Building package...")
-    build()
-
-    if upload_to_pypi:
-        print("Uploading to PyPI...")
-        upload()
-
-    print("Build process completed.")
+    build_package()
+    if upload:
+        upload_package(test=test)
 
 
 if __name__ == "__main__":
-    upload_flag = "--upload" in sys.argv
-    main(upload_to_pypi=upload_flag)
+    main(
+        upload="--upload" in sys.argv,
+        test="--test" in sys.argv
+    )
