@@ -81,7 +81,7 @@ Then:
 
 ```python
 import asyncio
-from YouTubeMusic.YtSearch import Search YtSearch
+from YouTubeMusic.YtSearch import Search as YtSearch
 
 async def main():
     results = await YtSearch("Kesariya", limit=1)
