@@ -14,6 +14,8 @@ HEADERS = {
 }
 
 YOUTUBE_SEARCH_URL = "https://www.youtube.com/results?search_query={}"
+YOUTUBE_TRENDING_URL = "https://www.youtube.com/feed/trending"
+
 YT_REGEX = re.compile(r"ytInitialData\s*=\s*(\{.+?\});", re.DOTALL)
 
 _client = httpx.AsyncClient(http2=True, timeout=15, headers=HEADERS)
@@ -21,6 +23,8 @@ _client = httpx.AsyncClient(http2=True, timeout=15, headers=HEADERS)
 MEMORY_CACHE = {}
 LOCKS = {}
 
+
+# ---------------- COMMON HELPERS ----------------
 
 def normalize(q: str) -> str:
     return re.sub(r"\s+", " ", q.lower().strip())
@@ -45,6 +49,16 @@ def safe_get(obj, *keys):
         obj = obj.get(key, {})
     return obj
 
+
+async def fetch_yt_data(url: str):
+    r = await _client.get(url)
+    match = YT_REGEX.search(r.text)
+    if not match:
+        return None
+    return orjson.loads(match.group(1))
+
+
+# ---------------- REDIS ----------------
 
 async def redis_get(key: str):
     if not UPSTASH_REDIS_REST_URL or not UPSTASH_REDIS_REST_TOKEN:
@@ -93,11 +107,13 @@ async def close_client():
     await _client.aclose()
 
 
+# ---------------- SEARCH ----------------
+
 async def Search(query: str, limit: int = 1):
     if not query:
         return {"main_results": [], "suggested": []}
 
-    qkey = normalize(query)
+    qkey = "search_" + normalize(query)
 
     if qkey in MEMORY_CACHE:
         return MEMORY_CACHE[qkey]
@@ -113,13 +129,10 @@ async def Search(query: str, limit: int = 1):
     async with lock:
         try:
             url = YOUTUBE_SEARCH_URL.format(quote_plus(query))
-            r = await _client.get(url)
+            raw = await fetch_yt_data(url)
 
-            match = YT_REGEX.search(r.text)
-            if not match:
+            if not raw:
                 return {"main_results": [], "suggested": []}
-
-            raw = orjson.loads(match.group(1))
 
             contents = safe_get(
                 raw,
@@ -147,18 +160,17 @@ async def Search(query: str, limit: int = 1):
                     title_data = safe_get(v, "title", "runs")
                     title = title_data[0]["text"] if title_data else "Unknown"
 
-                    results.append(
-                        {
-                            "title": title,
-                            "url": f"https://www.youtube.com/watch?v={video_id}",
-                            "duration": v.get("lengthText", {}).get("simpleText", "LIVE"),
-                            "channel": extract_channel_name(v),
-                            "views": format_views(
-                                v.get("viewCountText", {}).get("simpleText", "0 views")
-                            ),
-                            "thumbnail": f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg",
-                        }
-                    )
+                    results.append({
+                        "title": title,
+                        "video_id": video_id,
+                        "url": f"https://www.youtube.com/watch?v={video_id}",
+                        "duration": v.get("lengthText", {}).get("simpleText", "LIVE"),
+                        "channel": extract_channel_name(v),
+                        "views": format_views(
+                            v.get("viewCountText", {}).get("simpleText", "0 views")
+                        ),
+                        "thumbnail": f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg",
+                    })
 
                     if len(results) >= limit + 5:
                         break
@@ -177,4 +189,82 @@ async def Search(query: str, limit: int = 1):
             LOCKS.pop(qkey, None)
 
 
-__all__ = ["Search", "close_client"]
+# ---------------- TRENDING ----------------
+
+async def Trending(limit: int = 10):
+
+    key = "trending_global"
+
+    if key in MEMORY_CACHE:
+        return MEMORY_CACHE[key]
+
+    cached = await redis_get(key)
+    if cached:
+        data = orjson.loads(cached.encode())
+        MEMORY_CACHE[key] = data
+        return data
+
+    raw = await fetch_yt_data(YOUTUBE_TRENDING_URL)
+    if not raw:
+        return []
+
+    tabs = safe_get(
+        raw,
+        "contents",
+        "twoColumnBrowseResultsRenderer",
+        "tabs",
+    )
+
+    results = []
+
+    for tab in tabs:
+        section = safe_get(
+            tab,
+            "tabRenderer",
+            "content",
+            "sectionListRenderer",
+            "contents",
+        )
+
+        for item in section:
+            videos = safe_get(item, "itemSectionRenderer", "contents")
+
+            for v in videos:
+                vr = v.get("videoRenderer")
+                if not vr:
+                    continue
+
+                video_id = vr.get("videoId")
+
+                title_data = safe_get(vr, "title", "runs")
+                title = title_data[0]["text"] if title_data else "Unknown"
+
+                results.append({
+                    "title": title,
+                    "video_id": video_id,
+                    "duration": vr.get("lengthText", {}).get("simpleText", "LIVE"),
+                    "channel": extract_channel_name(vr),
+                    "views": format_views(
+                        vr.get("viewCountText", {}).get("simpleText", "0 views")
+                    ),
+                    "thumbnail": f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg",
+                })
+
+                if len(results) >= limit:
+                    MEMORY_CACHE[key] = results
+                    await redis_set(key, orjson.dumps(results))
+                    return results
+
+    MEMORY_CACHE[key] = results
+    await redis_set(key, orjson.dumps(results))
+    return results
+
+
+# ---------------- SUGGEST ----------------
+
+async def Suggest(query: str, limit: int = 10):
+    data = await Search(query, limit=limit)
+    return data.get("suggested", [])
+
+
+__all__ = ["Search", "Trending", "Suggest", "close_client"]
