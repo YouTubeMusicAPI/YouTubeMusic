@@ -189,11 +189,11 @@ async def Search(query: str, limit: int = 1):
             LOCKS.pop(qkey, None)
 
 
-# ---------------- TRENDING ----------------
+# ---------------- TRENDING MUSIC (STABLE METHOD) ----------------
 
 async def Trending(limit: int = 10):
 
-    key = "trending_global"
+    key = "trending_music"
 
     if key in MEMORY_CACHE:
         return MEMORY_CACHE[key]
@@ -204,11 +204,13 @@ async def Trending(limit: int = 10):
         MEMORY_CACHE[key] = data
         return data
 
-    raw = await fetch_yt_data(YOUTUBE_TRENDING_URL)
+    MUSIC_FEED_URL = "https://www.youtube.com/feed/music"
+
+    raw = await fetch_yt_data(MUSIC_FEED_URL)
     if not raw:
         return []
 
-    tabs = safe_get(
+    contents = safe_get(
         raw,
         "contents",
         "twoColumnBrowseResultsRenderer",
@@ -217,7 +219,7 @@ async def Trending(limit: int = 10):
 
     results = []
 
-    for tab in tabs:
+    for tab in contents:
         section = safe_get(
             tab,
             "tabRenderer",
@@ -235,6 +237,8 @@ async def Trending(limit: int = 10):
                     continue
 
                 video_id = vr.get("videoId")
+                if not video_id:
+                    continue
 
                 title_data = safe_get(vr, "title", "runs")
                 title = title_data[0]["text"] if title_data else "Unknown"
@@ -258,8 +262,6 @@ async def Trending(limit: int = 10):
     MEMORY_CACHE[key] = results
     await redis_set(key, orjson.dumps(results))
     return results
-
-
 # ---------------- SUGGEST ----------------
 
 async def Suggest(query: str, limit: int = 10):
