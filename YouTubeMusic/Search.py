@@ -191,9 +191,11 @@ async def Search(query: str, limit: int = 1):
 
 # ---------------- TRENDING MUSIC (STABLE METHOD) ----------------
 
+# ---------------- TRENDING MUSIC (STABLE SEARCH BASED) ----------------
+
 async def Trending(limit: int = 10):
 
-    key = "trending_music"
+    key = "trending_music_search"
 
     if key in MEMORY_CACHE:
         return MEMORY_CACHE[key]
@@ -204,64 +206,22 @@ async def Trending(limit: int = 10):
         MEMORY_CACHE[key] = data
         return data
 
-    MUSIC_FEED_URL = "https://www.youtube.com/feed/music"
+    # Use search instead of feed scraping
+    trending_query = "music trending india"
 
-    raw = await fetch_yt_data(MUSIC_FEED_URL)
-    if not raw:
+    data = await Search(trending_query, limit=limit)
+
+    if not data or not data.get("main_results"):
         return []
 
-    contents = safe_get(
-        raw,
-        "contents",
-        "twoColumnBrowseResultsRenderer",
-        "tabs",
-    )
-
-    results = []
-
-    for tab in contents:
-        section = safe_get(
-            tab,
-            "tabRenderer",
-            "content",
-            "sectionListRenderer",
-            "contents",
-        )
-
-        for item in section:
-            videos = safe_get(item, "itemSectionRenderer", "contents")
-
-            for v in videos:
-                vr = v.get("videoRenderer")
-                if not vr:
-                    continue
-
-                video_id = vr.get("videoId")
-                if not video_id:
-                    continue
-
-                title_data = safe_get(vr, "title", "runs")
-                title = title_data[0]["text"] if title_data else "Unknown"
-
-                results.append({
-                    "title": title,
-                    "video_id": video_id,
-                    "duration": vr.get("lengthText", {}).get("simpleText", "LIVE"),
-                    "channel": extract_channel_name(vr),
-                    "views": format_views(
-                        vr.get("viewCountText", {}).get("simpleText", "0 views")
-                    ),
-                    "thumbnail": f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg",
-                })
-
-                if len(results) >= limit:
-                    MEMORY_CACHE[key] = results
-                    await redis_set(key, orjson.dumps(results))
-                    return results
+    results = data.get("main_results", []) + data.get("suggested", [])
+    results = results[:limit]
 
     MEMORY_CACHE[key] = results
     await redis_set(key, orjson.dumps(results))
+
     return results
+    
 # ---------------- SUGGEST ----------------
 
 async def Suggest(query: str, limit: int = 10):
