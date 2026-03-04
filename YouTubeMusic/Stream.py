@@ -3,6 +3,7 @@ import os
 import hashlib
 import json
 import time
+import sys
 from urllib.parse import urlparse, parse_qs
 
 __all__ = ["get_stream", "get_video_stream"]
@@ -13,99 +14,82 @@ os.makedirs(_CACHE_DIR, exist_ok=True)
 _MEM_CACHE = {}
 
 
-def _key(url: str, prefix: str = "") -> str:
+def _key(url, prefix=""):
     return hashlib.md5((prefix + url).encode()).hexdigest()
 
 
-def _cache_path(url: str, prefix: str = "") -> str:
+def _cache_path(url, prefix=""):
     return os.path.join(_CACHE_DIR, _key(url, prefix) + ".json")
 
 
-def _extract_expire(stream_url: str):
+def _extract_expire(stream_url):
     try:
         q = parse_qs(urlparse(stream_url).query)
-        expire = int(q.get("expire", [0])[0])
-        return expire if expire > int(time.time()) else None
-    except Exception:
+        return int(q.get("expire", [0])[0])
+    except:
         return None
 
 
-def _read_cache(url: str, prefix: str = ""):
+def _read_cache(url, prefix=""):
     path = _cache_path(url, prefix)
 
     if not os.path.exists(path):
         return None
 
     try:
-        with open(path, "r") as f:
+        with open(path) as f:
             data = json.load(f)
 
-        expire = data.get("expire", 0)
+        expire = data.get("expire")
 
-        if time.time() < expire - 15:
-            return data.get("url")
+        if expire and time.time() < expire - 15:
+            return data["url"]
 
         os.remove(path)
-
-    except Exception:
-        try:
-            os.remove(path)
-        except Exception:
-            pass
+    except:
+        pass
 
     return None
 
 
-def _write_cache(url: str, stream_url: str, prefix: str = ""):
+def _write_cache(url, stream_url, prefix=""):
     expire = _extract_expire(stream_url)
     if not expire:
         return
 
     try:
         with open(_cache_path(url, prefix), "w") as f:
-            json.dump(
-                {
-                    "url": stream_url,
-                    "expire": expire,
-                },
-                f,
-            )
-    except Exception:
+            json.dump({"url": stream_url, "expire": expire}, f)
+    except:
         pass
 
 
-async def _run_yt_dlp(url: str, format_selector: str, cookies: str | None):
+async def _run_yt_dlp(url, fmt, cookies_file):
+
+    if not cookies_file or not os.path.exists(cookies_file):
+        raise FileNotFoundError("Valid cookies file required")
+
     cmd = [
         "yt-dlp",
-        "--js-runtimes", "node",
-        "--remote-components", "ejs:github",
-        "--extractor-arg", "youtube:player_client=android_vr",
-        "--no-warnings",
-        "--quiet",
-        "-f", format_selector,
-        "--no-playlist",
+        "--cookies", cookies_file,
+        "-f", fmt,
         "-g",
+        "--no-playlist",
         url,
     ]
 
-    if cookies and os.path.exists(cookies):
-        cmd.insert(1, "--cookies")
-        cmd.insert(2, cookies)
+    process = await asyncio.create_subprocess_exec(
+        *cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
 
-    try:
-        process = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
+    stdout, stderr = await process.communicate()
 
-        stdout, _ = await asyncio.wait_for(
-            process.communicate(),
-            timeout=15,
-        )
-
-    except Exception:
-        return None
+    if stderr:
+        err = stderr.decode().strip()
+        if err:
+            print("yt-dlp:", err)
 
     if process.returncode == 0 and stdout:
         out = stdout.decode().strip().splitlines()
@@ -114,51 +98,45 @@ async def _run_yt_dlp(url: str, format_selector: str, cookies: str | None):
     return None
 
 
-async def get_stream(url: str, cookies: str | None = None):
-    cached = _MEM_CACHE.get(("audio", url))
-    if cached:
+async def get_stream(url, cookies_file):
+
+    if ("audio", url) in _MEM_CACHE:
+        cached = _MEM_CACHE[("audio", url)]
         expire = _extract_expire(cached)
         if expire and time.time() < expire - 15:
             return cached
 
-    cached = _read_cache(url, prefix="audio_")
+    cached = _read_cache(url, "audio_")
     if cached:
         _MEM_CACHE[("audio", url)] = cached
         return cached
 
-    stream = await _run_yt_dlp(
-        url,
-        "251/bestaudio",
-        cookies,
-    )
+    stream = await _run_yt_dlp(url, "251", cookies_file)
 
     if stream:
         _MEM_CACHE[("audio", url)] = stream
-        _write_cache(url, stream, prefix="audio_")
+        _write_cache(url, stream, "audio_")
 
     return stream
 
 
-async def get_video_stream(url: str, cookies: str | None = None):
-    cached = _MEM_CACHE.get(("video", url))
-    if cached:
+async def get_video_stream(url, cookies_file):
+
+    if ("video", url) in _MEM_CACHE:
+        cached = _MEM_CACHE[("video", url)]
         expire = _extract_expire(cached)
         if expire and time.time() < expire - 15:
             return cached
 
-    cached = _read_cache(url, prefix="video_")
+    cached = _read_cache(url, "video_")
     if cached:
         _MEM_CACHE[("video", url)] = cached
         return cached
 
-    stream = await _run_yt_dlp(
-        url,
-        "best[ext=mp4][protocol=https]",
-        cookies,
-    )
+    stream = await _run_yt_dlp(url, "18", cookies_file)
 
     if stream:
         _MEM_CACHE[("video", url)] = stream
-        _write_cache(url, stream, prefix="video_")
+        _write_cache(url, stream, "video_")
 
     return stream
