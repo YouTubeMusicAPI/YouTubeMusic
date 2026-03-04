@@ -21,7 +21,7 @@ def _cache_path(url: str, prefix: str = "") -> str:
     return os.path.join(_CACHE_DIR, _key(url, prefix) + ".json")
 
 
-def _extract_expire(stream_url: str) -> int | None:
+def _extract_expire(stream_url: str):
     try:
         q = parse_qs(urlparse(stream_url).query)
         expire = int(q.get("expire", [0])[0])
@@ -30,7 +30,7 @@ def _extract_expire(stream_url: str) -> int | None:
         return None
 
 
-def _read_cache(url: str, prefix: str = "") -> str | None:
+def _read_cache(url: str, prefix: str = ""):
     path = _cache_path(url, prefix)
 
     if not os.path.exists(path):
@@ -46,6 +46,7 @@ def _read_cache(url: str, prefix: str = "") -> str | None:
             return data.get("url")
 
         os.remove(path)
+
     except Exception:
         try:
             os.remove(path)
@@ -78,6 +79,9 @@ async def _run_yt_dlp(url: str, format_selector: str, cookies: str | None):
         "yt-dlp",
         "--js-runtimes", "node",
         "--remote-components", "ejs:github",
+        "--extractor-arg", "youtube:player_client=android_vr",
+        "--no-warnings",
+        "--quiet",
         "-f", format_selector,
         "--no-playlist",
         "-g",
@@ -97,19 +101,20 @@ async def _run_yt_dlp(url: str, format_selector: str, cookies: str | None):
 
         stdout, _ = await asyncio.wait_for(
             process.communicate(),
-            timeout=40,
+            timeout=15,
         )
 
     except Exception:
         return None
 
     if process.returncode == 0 and stdout:
-        return stdout.decode().strip().split("\n")[0]
+        out = stdout.decode().strip().splitlines()
+        return out[0] if out else None
 
     return None
 
 
-async def get_stream(url: str, cookies: str | None = None) -> str | None:
+async def get_stream(url: str, cookies: str | None = None):
     cached = _MEM_CACHE.get(("audio", url))
     if cached:
         expire = _extract_expire(cached)
@@ -123,7 +128,7 @@ async def get_stream(url: str, cookies: str | None = None) -> str | None:
 
     stream = await _run_yt_dlp(
         url,
-        "bestaudio[ext=m4a]/bestaudio/best",
+        "251/bestaudio",
         cookies,
     )
 
@@ -134,7 +139,7 @@ async def get_stream(url: str, cookies: str | None = None) -> str | None:
     return stream
 
 
-async def get_video_stream(url: str, cookies: str | None = None) -> str | None:
+async def get_video_stream(url: str, cookies: str | None = None):
     cached = _MEM_CACHE.get(("video", url))
     if cached:
         expire = _extract_expire(cached)
