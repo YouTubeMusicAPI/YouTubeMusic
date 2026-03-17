@@ -8,26 +8,57 @@ def extract_playlist_id(url: str) -> str:
     return params.get("list", [""])[0]
 
 
-def parse_dur(duration: str) -> str:
-    match = re.match(
-        r"PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?",
-        duration or "",
-    )
-
-    if not match:
+def parse_dur(duration) -> str:
+    if not duration:
         return "N/A"
 
-    hours, minutes, seconds = match.groups(default="0")
+    # ✅ Case 1: Already in seconds (int/str)
+    if isinstance(duration, (int, float)) or str(duration).isdigit():
+        seconds = int(duration)
+        m, s = divmod(seconds, 60)
+        h, m = divmod(m, 60)
 
-    h = int(hours)
-    m = int(minutes)
-    s = int(seconds)
+        if h:
+            return f"{h}:{m:02d}:{s:02d}"
+        return f"{m}:{s:02d}"
 
-    if h:
-        return f"{h}:{m:02d}:{s:02d}"
+    duration = str(duration)
 
-    return f"{m}:{s:02d}"
+    # ✅ Case 2: Normal format "3:45" or "1:02:30"
+    if ":" in duration:
+        try:
+            parts = list(map(int, duration.split(":")))
+            seconds = 0
+            for p in parts:
+                seconds = seconds * 60 + p
 
+            m, s = divmod(seconds, 60)
+            h, m = divmod(m, 60)
+
+            if h:
+                return f"{h}:{m:02d}:{s:02d}"
+            return f"{m}:{s:02d}"
+        except:
+            pass
+
+    # ✅ Case 3: ISO format "PT3M45S"
+    match = re.match(
+        r"PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?",
+        duration,
+    )
+
+    if match:
+        hours, minutes, seconds = match.groups(default="0")
+
+        h = int(hours)
+        m = int(minutes)
+        s = int(seconds)
+
+        if h:
+            return f"{h}:{m:02d}:{s:02d}"
+        return f"{m}:{s:02d}"
+
+    return "N/A"
 
 def format_ind(n):
     try:
