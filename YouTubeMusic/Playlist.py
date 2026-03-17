@@ -29,6 +29,17 @@ def extract_playlist_id(value: str) -> str:
 
     return pid
 
+def format_duration(seconds):
+    if seconds == "N/A":
+        return "N/A"
+
+    seconds = int(seconds)
+    m, s = divmod(seconds, 60)
+    h, m = divmod(m, 60)
+
+    if h > 0:
+        return f"{h}:{m:02d}:{s:02d}"
+    return f"{m}:{s:02d}"
 
 def extract_video_id(value: str) -> str | None:
     parsed = urlparse(value)
@@ -149,12 +160,15 @@ def parse_normal_playlist(data: dict) -> List[Dict]:
                     if not vid:
                         continue
 
+                    duration_sec = get_duration(r)
+
+
                     songs.append(
                         {
                             "videoId": vid,
                             "title": get_text(r.get("title")),
                             "channel": get_text(r.get("shortBylineText")),
-                            "duration": get_duration(r),
+                            "duration": format_duration(duration_sec),
                             "url": f"https://music.youtube.com/watch?v={vid}",
                             "thumbnail": make_thumbnail(vid),
                         }
@@ -183,12 +197,15 @@ def parse_mix_playlist(data: dict) -> List[Dict]:
         if not vid:
             continue
 
+        duration_sec = get_duration(r)
+
+
         songs.append(
             {
                 "videoId": vid,
                 "title": get_text(r.get("title")),
                 "channel": get_text(r.get("shortBylineText")),
-                "duration": get_duration(r),
+                "duration": format_duration(duration_sec),
                 "url": f"https://music.youtube.com/watch?v={vid}",
                 "thumbnail": make_thumbnail(vid),
             }
