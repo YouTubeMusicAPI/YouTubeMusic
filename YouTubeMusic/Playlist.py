@@ -54,6 +54,21 @@ def extract_yt_initial_data(html: str) -> dict:
 
     return json.loads(match.group(1))
 
+def get_duration(r):
+    # 1. Try lengthSeconds
+    if "lengthSeconds" in r:
+        return int(r["lengthSeconds"])
+
+    # 2. Fallback to lengthText (e.g. "3:45")
+    length_text = get_text(r.get("lengthText"))
+    if length_text:
+        parts = list(map(int, length_text.split(":")))
+        seconds = 0
+        for p in parts:
+            seconds = seconds * 60 + p
+        return seconds
+
+    return "N/A"
 
 def get_text(obj) -> str:
     if not obj:
@@ -111,7 +126,7 @@ def parse_normal_playlist(data: dict) -> List[Dict]:
                             "videoId": vid,
                             "title": get_text(r.get("title")),
                             "channel": get_text(r.get("shortBylineText")),
-                            "duration": r.get("lengthSeconds", "N/A"),
+                            "duration": get_duration(r),
                             "url": f"https://music.youtube.com/watch?v={vid}",
                             "thumbnail": make_thumbnail(vid),
                         }
@@ -145,7 +160,7 @@ def parse_mix_playlist(data: dict) -> List[Dict]:
                 "videoId": vid,
                 "title": get_text(r.get("title")),
                 "channel": get_text(r.get("shortBylineText")),
-                "duration": r.get("lengthSeconds", "N/A"),
+                "duration": get_duration(r),
                 "url": f"https://music.youtube.com/watch?v={vid}",
                 "thumbnail": make_thumbnail(vid),
             }
