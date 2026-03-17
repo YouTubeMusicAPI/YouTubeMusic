@@ -75,40 +75,55 @@ def _write_cache(url: str, stream_url: str, prefix: str = ""):
 
 
 async def _run_yt_dlp(url: str, format_selector: str, cookies: str | None):
-    cmd = [
+    base_cmd = [
         "yt-dlp",
         "--js-runtimes", "node",
         "--remote-components", "ejs:github",
-        "-f", format_selector,
         "--no-playlist",
+        "-f", format_selector,
         "-g",
         url,
     ]
 
     if cookies and os.path.exists(cookies):
-        cmd.insert(1, "--cookies")
-        cmd.insert(2, cookies)
+        base_cmd.insert(1, "--cookies")
+        base_cmd.insert(2, cookies)
 
-    try:
-        process = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
+    # 🔁 Fallback strategies
+    strategies = [
+        [],  # normal
+        ["--extractor-args", "youtube:player_js_variant=main"],
+        ["--extractor-args", "youtube:player_client=android"],
+    ]
 
-        stdout, _ = await asyncio.wait_for(
-            process.communicate(),
-            timeout=40,
-        )
+    for extra in strategies:
+        cmd = base_cmd.copy()
 
-    except Exception:
-        return None
+        # insert before -f for safety
+        if extra:
+            insert_index = cmd.index("-f")
+            for i, arg in enumerate(extra):
+                cmd.insert(insert_index + i, arg)
 
-    if process.returncode == 0 and stdout:
-        return stdout.decode().strip().split("\n")[0]
+        try:
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+
+            stdout, _ = await asyncio.wait_for(
+                process.communicate(),
+                timeout=40,
+            )
+
+        except Exception:
+            continue
+
+        if process.returncode == 0 and stdout:
+            return stdout.decode().strip().split("\n")[0]
 
     return None
-
 
 async def get_stream(url: str, cookies: str | None = None) -> str | None:
     cached = _MEM_CACHE.get(("audio", url))
