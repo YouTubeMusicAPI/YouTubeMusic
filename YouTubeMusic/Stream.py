@@ -174,3 +174,32 @@ async def get_video_stream(url: str, cookies: str | None = None) -> str | None:
         _write_cache(url, stream, prefix="video_")
 
     return stream
+
+TEST_URL = "https://youtu.be/WIGtCEHpilE"
+
+# 👇 cookies ka absolute path (important)
+COOKIES = os.path.abspath("cookies.txt")
+
+
+async def main():
+    print("🔍 Testing Audio Stream...\n")
+
+    audio = await get_stream(TEST_URL, COOKIES)
+    if audio:
+        print("✅ AUDIO URL:\n", audio)
+    else:
+        print("❌ Audio stream failed")
+
+    print("\n" + "=" * 50 + "\n")
+
+    print("🎥 Testing Video Stream...\n")
+
+    video = await get_video_stream(TEST_URL, COOKIES)
+    if video:
+        print("✅ VIDEO URL:\n", video)
+    else:
+        print("❌ Video stream failed")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
