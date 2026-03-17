@@ -77,6 +77,7 @@ def _write_cache(url: str, stream_url: str, prefix: str = ""):
 async def _run_yt_dlp(url: str, format_selector: str, cookies: str | None):
     base_cmd = [
         "yt-dlp",
+        "-v",
         "--js-runtimes", "node",
         "--remote-components", "ejs:github",
         "--no-playlist",
