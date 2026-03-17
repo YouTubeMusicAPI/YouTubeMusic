@@ -55,19 +55,47 @@ def extract_yt_initial_data(html: str) -> dict:
     return json.loads(match.group(1))
 
 def get_duration(r):
-    # 1. Try lengthSeconds
-    if "lengthSeconds" in r:
-        return int(r["lengthSeconds"])
+    # 1. Direct seconds (best case)
+    length_seconds = r.get("lengthSeconds")
+    if length_seconds:
+        try:
+            return int(length_seconds)
+        except:
+            pass
 
-    # 2. Fallback to lengthText (e.g. "3:45")
+    # 2. lengthText (e.g. "3:45" or "1:02:30")
     length_text = get_text(r.get("lengthText"))
     if length_text:
-        parts = list(map(int, length_text.split(":")))
-        seconds = 0
-        for p in parts:
-            seconds = seconds * 60 + p
-        return seconds
+        try:
+            parts = list(map(int, length_text.split(":")))
+            seconds = 0
+            for p in parts:
+                seconds = seconds * 60 + p
+            return seconds
+        except:
+            pass
 
+    # 3. Accessibility fallback (hidden duration)
+    accessibility = r.get("lengthText", {}).get("accessibility", {})
+    label = accessibility.get("accessibilityData", {}).get("label")
+
+    if label:
+        # Example: "5 minutes, 32 seconds"
+        match = re.findall(r"(\d+)\s*(hour|minute|second)", label)
+        if match:
+            seconds = 0
+            for value, unit in match:
+                value = int(value)
+                if "hour" in unit:
+                    seconds += value * 3600
+                elif "minute" in unit:
+                    seconds += value * 60
+                elif "second" in unit:
+                    seconds += value
+            if seconds > 0:
+                return seconds
+
+    # 4. Live / Unknown
     return "N/A"
 
 def get_text(obj) -> str:
