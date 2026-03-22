@@ -16,7 +16,7 @@ HEADERS = {
 YOUTUBE_SEARCH_URL = "https://www.youtube.com/results?search_query={}"
 YOUTUBE_TRENDING_URL = "https://www.youtube.com/feed/trending"
 
-YT_REGEX = re.compile(r"ytInitialData\s*=\s*(\{.+?\});", re.DOTALL)
+YT_REGEX = re.compile(r"ytInitialData\s*=\s*(\{.*\});", re.DOTALL)
 
 _client = httpx.AsyncClient(http2=True, timeout=15, headers=HEADERS)
 
@@ -51,12 +51,35 @@ def safe_get(obj, *keys):
 
 
 async def fetch_yt_data(url: str):
-    r = await _client.get(url)
-    match = YT_REGEX.search(r.text)
-    if not match:
-        return None
-    return orjson.loads(match.group(1))
+    try:
+        r = await _client.get(url)
 
+        if r.status_code != 200:
+            return None
+
+        html = r.text
+
+        match = YT_REGEX.search(html)
+        if not match:
+            return None
+
+        data = match.group(1)
+
+        try:
+            return orjson.loads(data)
+
+        except orjson.JSONDecodeError:
+            # 🔥 DEBUG (optional but useful)
+            try:
+                with open("yt_error_dump.txt", "w") as f:
+                    f.write(data)
+            except Exception:
+                pass
+
+            return None
+
+    except Exception:
+        return None
 
 # ---------------- REDIS ----------------
 
