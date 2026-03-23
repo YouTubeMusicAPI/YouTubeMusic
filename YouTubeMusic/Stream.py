@@ -7,11 +7,12 @@ __all__ = ["get_stream", "get_video_stream"]
 async def _run_yt_dlp(url: str, format_selector: str, cookies: str | None):
     base_cmd = [
         "yt-dlp",
+        "-v",
+        "--js-runtimes", "node",
+        "--remote-components", "ejs:github",
         "--no-playlist",
         "-f", format_selector,
         "-g",
-        "--quiet",
-        "--no-warnings",
         url,
     ]
 
@@ -23,6 +24,7 @@ async def _run_yt_dlp(url: str, format_selector: str, cookies: str | None):
         [],
         ["--extractor-args", "youtube:player_client=android"],
         ["--extractor-args", "youtube:player_client=web"],
+        ["--extractor-args", "youtube:player_js_variant=main"],
     ]
 
     for extra in strategies:
@@ -42,7 +44,7 @@ async def _run_yt_dlp(url: str, format_selector: str, cookies: str | None):
 
             stdout, stderr = await asyncio.wait_for(
                 process.communicate(),
-                timeout=25,
+                timeout=40,
             )
 
         except Exception:
