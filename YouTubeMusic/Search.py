@@ -21,11 +21,29 @@ def normalize(q: str) -> str:
 
 
 def format_views(text: str) -> str:
-    if not text:
-        return "0"
-    text = text.replace(",", "")
-    text = text.replace(" views", "").replace(" view", "")
-    return text.strip()
+    try:
+        if not text:
+            return "0 Views"
+
+        text = str(text).lower().replace(",", "").strip()
+
+        match = re.search(r"\d+", text)
+        if not match:
+            return "0 Views"
+
+        num = int(match.group())
+
+        if num >= 10_000_000:
+            return f"{num/10_000_000:.1f}Cr Views"
+        elif num >= 1_000_000:
+            return f"{num/1_000_000:.1f}M Views"
+        elif num >= 1_000:
+            return f"{num/1_000:.1f}K Views"
+        else:
+            return f"{num} Views"
+
+    except:
+        return "0 Views"
 
 
 def extract_channel_name(v: dict) -> str:
