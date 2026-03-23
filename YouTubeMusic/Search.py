@@ -1,8 +1,9 @@
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, quote
 import httpx
 import re
 import orjson
 import asyncio
+import os
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0",
@@ -10,13 +11,12 @@ HEADERS = {
 }
 
 YOUTUBE_SEARCH_URL = "https://www.youtube.com/results?search_query={}"
+YOUTUBE_TRENDING_URL = "https://www.youtube.com/feed/trending"
 
 YT_REGEX = re.compile(r"ytInitialData\s*=\s*(\{.*\});", re.DOTALL)
 
 _client = httpx.AsyncClient(http2=True, timeout=15, headers=HEADERS)
 
-
-# ---------------- COMMON HELPERS ----------------
 
 def normalize(q: str) -> str:
     return re.sub(r"\s+", " ", q.lower().strip())
@@ -130,7 +130,7 @@ async def Search(query: str, limit: int = 1):
 async def Trending(limit: int = 10):
     data = await Search("music trending india", limit=limit)
 
-    if not data:
+    if not data or not data.get("main_results"):
         return []
 
     results = data.get("main_results", []) + data.get("suggested", [])
