@@ -149,3 +149,34 @@ async def close_client():
 
 
 __all__ = ["Search", "Trending", "Suggest", "close_client"]
+
+async def main():
+    print("🔎 Testing Search...\n")
+    
+    search_data = await Search("Arijit Singh songs", limit=1)
+    print("Main Result:")
+    print(search_data["main_results"])
+    
+    print("\nSuggested:")
+    print(search_data["suggested"])
+
+
+    print("\n🔥 Testing Trending...\n")
+    
+    trending = await Trending(limit=5)
+    for i, video in enumerate(trending, 1):
+        print(f"{i}. {video['title']} ({video['views']})")
+
+
+    print("\n💡 Testing Suggest...\n")
+    
+    suggest = await Suggest("lofi", limit=5)
+    for i, video in enumerate(suggest, 1):
+        print(f"{i}. {video['title']}")
+
+
+    await close_client()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
