@@ -7,12 +7,11 @@ __all__ = ["get_stream", "get_video_stream"]
 async def _run_yt_dlp(url: str, format_selector: str, cookies: str | None):
     base_cmd = [
         "yt-dlp",
-        "-v",
-        "--js-runtimes", "node",
-        "--remote-components", "ejs:github",
         "--no-playlist",
         "-f", format_selector,
         "-g",
+        "--quiet",
+        "--no-warnings",
         url,
     ]
 
@@ -20,11 +19,10 @@ async def _run_yt_dlp(url: str, format_selector: str, cookies: str | None):
         base_cmd.insert(1, "--cookies")
         base_cmd.insert(2, cookies)
 
-    # 🔁 Fallback strategies
     strategies = [
-        [],  # normal
-        ["--extractor-args", "youtube:player_js_variant=main"],
+        [],
         ["--extractor-args", "youtube:player_client=android"],
+        ["--extractor-args", "youtube:player_client=web"],
     ]
 
     for extra in strategies:
@@ -42,16 +40,25 @@ async def _run_yt_dlp(url: str, format_selector: str, cookies: str | None):
                 stderr=asyncio.subprocess.PIPE,
             )
 
-            stdout, _ = await asyncio.wait_for(
+            stdout, stderr = await asyncio.wait_for(
                 process.communicate(),
-                timeout=40,
+                timeout=25,
             )
 
         except Exception:
             continue
 
-        if process.returncode == 0 and stdout:
-            return stdout.decode().strip().split("\n")[0]
+        if process.returncode != 0:
+            continue
+
+        if not stdout:
+            continue
+
+        output = stdout.decode().strip().split("\n")
+
+        for line in output:
+            if line.startswith("http"):
+                return line.strip()
 
     return None
 
@@ -67,6 +74,6 @@ async def get_stream(url: str, cookies: str | None = None) -> str | None:
 async def get_video_stream(url: str, cookies: str | None = None) -> str | None:
     return await _run_yt_dlp(
         url,
-        "best[ext=mp4][protocol=https]",
+        "best[ext=mp4][protocol=https]/best",
         cookies,
     )
