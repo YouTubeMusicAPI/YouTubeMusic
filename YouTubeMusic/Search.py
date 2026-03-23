@@ -3,7 +3,6 @@ import httpx
 import re
 import orjson
 import asyncio
-import os
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0",
@@ -11,21 +10,22 @@ HEADERS = {
 }
 
 YOUTUBE_SEARCH_URL = "https://www.youtube.com/results?search_query={}"
-YOUTUBE_TRENDING_URL = "https://www.youtube.com/feed/trending"
 
-YT_REGEX = re.compile(r"ytInitialData\s*=\s*(\{.+?\});", re.DOTALL)
+YT_REGEX = re.compile(r"ytInitialData\s*=\s*(\{.*?\});", re.DOTALL)
 
 _client = httpx.AsyncClient(http2=True, timeout=15, headers=HEADERS)
 
-
-# ---------------- COMMON HELPERS ----------------
 
 def normalize(q: str) -> str:
     return re.sub(r"\s+", " ", q.lower().strip())
 
 
 def format_views(text: str) -> str:
-    return text.replace(" views", "").replace(" view", "")
+    if not text:
+        return "0"
+    text = text.replace(",", "")
+    text = text.replace(" views", "").replace(" view", "")
+    return text.strip()
 
 
 def extract_channel_name(v: dict) -> str:
@@ -45,24 +45,26 @@ def safe_get(obj, *keys):
 
 
 async def fetch_yt_data(url: str):
-    r = await _client.get(url)
-    match = YT_REGEX.search(r.text)
-    if not match:
+    try:
+        r = await _client.get(url)
+        if r.status_code != 200:
+            return None
+
+        text = r.text
+
+        match = YT_REGEX.search(text)
+        if not match:
+            return None
+
+        return orjson.loads(match.group(1))
+
+    except Exception:
         return None
-    return orjson.loads(match.group(1))
 
-
-async def close_client():
-    await _client.aclose()
-
-
-# ---------------- SEARCH ----------------
 
 async def Search(query: str, limit: int = 1):
     if not query:
         return {"main_results": [], "suggested": []}
-
-    qkey = "search_" + normalize(query)
 
     url = YOUTUBE_SEARCH_URL.format(quote_plus(query))
     raw = await fetch_yt_data(url)
@@ -93,8 +95,16 @@ async def Search(query: str, limit: int = 1):
             if not video_id:
                 continue
 
-            title_data = safe_get(v, "title", "runs")
-            title = title_data[0]["text"] if title_data else "Unknown"
+            title_runs = safe_get(v, "title", "runs")
+            title = title_runs[0]["text"] if title_runs else "Unknown"
+
+            views_data = v.get("viewCountText", {})
+            views = views_data.get("simpleText")
+
+            if not views:
+                runs = views_data.get("runs")
+                if runs:
+                    views = runs[0].get("text")
 
             results.append({
                 "title": title,
@@ -102,9 +112,7 @@ async def Search(query: str, limit: int = 1):
                 "url": f"https://www.youtube.com/watch?v={video_id}",
                 "duration": v.get("lengthText", {}).get("simpleText", "LIVE"),
                 "channel": extract_channel_name(v),
-                "views": format_views(
-                    v.get("viewCountText", {}).get("simpleText", "0 views")
-                ),
+                "views": format_views(views),
                 "thumbnail": f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg",
             })
 
@@ -113,30 +121,24 @@ async def Search(query: str, limit: int = 1):
 
     return {
         "main_results": results[:limit],
-        "suggested": results[limit : limit + 5],
+        "suggested": results[limit:limit + 5],
     }
 
 
-# ---------------- TRENDING ----------------
-
 async def Trending(limit: int = 10):
-
-    trending_query = "music trending india"
-
-    data = await Search(trending_query, limit=limit)
-
-    if not data or not data.get("main_results"):
+    data = await Search("music trending india", limit=limit)
+    if not data:
         return []
+    return (data.get("main_results", []) + data.get("suggested", []))[:limit]
 
-    results = data.get("main_results", []) + data.get("suggested", [])
-    return results[:limit]
-
-
-# ---------------- SUGGEST ----------------
 
 async def Suggest(query: str, limit: int = 10):
     data = await Search(query, limit=limit)
     return data.get("suggested", [])
+
+
+async def close_client():
+    await _client.aclose()
 
 
 __all__ = ["Search", "Trending", "Suggest", "close_client"]
