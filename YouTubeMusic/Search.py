@@ -11,7 +11,7 @@ HEADERS = {
 
 YOUTUBE_SEARCH_URL = "https://www.youtube.com/results?search_query={}"
 
-YT_REGEX = re.compile(r"ytInitialData\s*=\s*(\{.*?\});", re.DOTALL)
+YT_REGEX = re.compile(r"ytInitialData\s*=\s*(\{.+?\});", re.DOTALL)
 
 _client = httpx.AsyncClient(http2=True, timeout=15, headers=HEADERS)
 
