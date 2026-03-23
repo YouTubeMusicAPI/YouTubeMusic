@@ -20,11 +20,11 @@ async def _run_yt_dlp(url: str, format_selector: str, cookies: str | None):
         base_cmd.insert(1, "--cookies")
         base_cmd.insert(2, cookies)
 
+    # 🔁 Fallback strategies
     strategies = [
-        [],
-        ["--extractor-args", "youtube:player_client=android"],
-        ["--extractor-args", "youtube:player_client=web"],
+        [],  # normal
         ["--extractor-args", "youtube:player_js_variant=main"],
+        ["--extractor-args", "youtube:player_client=android"],
     ]
 
     for extra in strategies:
@@ -42,7 +42,7 @@ async def _run_yt_dlp(url: str, format_selector: str, cookies: str | None):
                 stderr=asyncio.subprocess.PIPE,
             )
 
-            stdout, stderr = await asyncio.wait_for(
+            stdout, _ = await asyncio.wait_for(
                 process.communicate(),
                 timeout=40,
             )
@@ -50,32 +50,78 @@ async def _run_yt_dlp(url: str, format_selector: str, cookies: str | None):
         except Exception:
             continue
 
-        if process.returncode != 0:
-            continue
-
-        if not stdout:
-            continue
-
-        output = stdout.decode().strip().split("\n")
-
-        for line in output:
-            if line.startswith("http"):
-                return line.strip()
+        if process.returncode == 0 and stdout:
+            return stdout.decode().strip().split("\n")[0]
 
     return None
 
 
 async def get_stream(url: str, cookies: str | None = None) -> str | None:
-    return await _run_yt_dlp(
+    stream = await _run_yt_dlp(
         url,
         "bestaudio[ext=m4a]/bestaudio/best",
         cookies,
     )
+    return stream
 
 
 async def get_video_stream(url: str, cookies: str | None = None) -> str | None:
-    return await _run_yt_dlp(
+    stream = await _run_yt_dlp(
         url,
-        "best[ext=mp4][protocol=https]/best",
+        "best[ext=mp4][protocol=https]",
         cookies,
     )
+    return stream
+
+import asyncio
+import os
+
+COOKIES_PATH = "cookies.txt"  # yaha apna path dal
+
+
+async def main():
+    test_url = "https://www.youtube.com/watch?v=O5gwxm3NxFU"
+
+    cookies = COOKIES_PATH if os.path.exists(COOKIES_PATH) else None
+
+    print("🔎 Testing Audio Stream...\n")
+
+    audio = await get_stream(test_url, cookies)
+
+    if audio:
+        print("✅ AUDIO STREAM (WITH COOKIES):")
+        print(audio)
+    else:
+        print("❌ AUDIO FAILED WITH COOKIES")
+
+        print("\n🔁 Retrying WITHOUT cookies...\n")
+        audio = await get_stream(test_url, None)
+
+        if audio:
+            print("✅ AUDIO STREAM (WITHOUT COOKIES):")
+            print(audio)
+        else:
+            print("❌ AUDIO FAILED COMPLETELY")
+
+    print("\n🎬 Testing Video Stream...\n")
+
+    video = await get_video_stream(test_url, cookies)
+
+    if video:
+        print("✅ VIDEO STREAM (WITH COOKIES):")
+        print(video)
+    else:
+        print("❌ VIDEO FAILED WITH COOKIES")
+
+        print("\n🔁 Retrying WITHOUT cookies...\n")
+        video = await get_video_stream(test_url, None)
+
+        if video:
+            print("✅ VIDEO STREAM (WITHOUT COOKIES):")
+            print(video)
+        else:
+            print("❌ VIDEO FAILED COMPLETELY")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
