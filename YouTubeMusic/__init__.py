@@ -7,7 +7,7 @@ from .Utils import parse_dur, format_ind, format_views
 from .Startup import run_startup
 from .Core import YouTubeMusic
 
-__version__ = "2026.4.02"
+__version__ = "2026.4.03"
 __author__ = "ABHISHEK THAKUR"
 
 __all__ = [
