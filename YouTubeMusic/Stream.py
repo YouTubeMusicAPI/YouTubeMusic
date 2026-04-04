@@ -68,7 +68,7 @@ async def get_stream(url: str, cookies: str | None = None) -> str | None:
 async def get_video_stream(url: str, cookies: str | None = None) -> str | None:
     stream = await _run_yt_dlp(
         url,
-        "best[ext=mp4][protocol=https]",
+        "best[ext=mp4]/best",
         cookies,
     )
     return stream
