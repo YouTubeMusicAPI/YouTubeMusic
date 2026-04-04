@@ -4,7 +4,7 @@ from .Stream import get_stream, get_video_stream
 from .Video_Stream import get_video_audio_urls, stream_merged
 from .Models import format_dur, process_video, extract_artist
 from .Utils import parse_dur, format_ind, format_views
-from .Startup import run_startup
+from .Startup import get_startup_info
 from .Core import YouTubeMusic
 from .version import __version__, __author__
 
@@ -22,6 +22,6 @@ __all__ = [
     "parse_dur",
     "format_ind",
     "format_views",
-    "run_startup",
+    "get_startup_info",
     "YouTubeMusic",
 ]
