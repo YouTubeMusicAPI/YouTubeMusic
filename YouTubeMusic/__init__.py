@@ -4,6 +4,7 @@ from .Stream import get_stream, get_video_stream
 from .Video_Stream import get_video_audio_urls, stream_merged
 from .Models import format_dur, process_video, extract_artist
 from .Utils import parse_dur, format_ind, format_views
+from .StartUp import run_startup()
 
 __version__ = "2026.4.01"
 __author__ = "ABHISHEK THAKUR"
@@ -23,3 +24,5 @@ __all__ = [
     "format_ind",
     "format_views",
 ]
+
+run_startup()
