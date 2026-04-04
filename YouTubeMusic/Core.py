@@ -1,5 +1,5 @@
 import asyncio
-from .startup import get_startup_info
+from .Startup import get_startup_info
 
 
 class YouTubeMusic:
