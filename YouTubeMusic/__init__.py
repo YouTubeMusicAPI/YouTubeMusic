@@ -6,9 +6,7 @@ from .Models import format_dur, process_video, extract_artist
 from .Utils import parse_dur, format_ind, format_views
 from .Startup import run_startup
 from .Core import YouTubeMusic
-
-__version__ = "2026.4.03"
-__author__ = "ABHISHEK THAKUR"
+from .version import __version__, __author__
 
 __all__ = [
     "YtSearch",
