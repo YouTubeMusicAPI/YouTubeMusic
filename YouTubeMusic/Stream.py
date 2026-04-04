@@ -5,11 +5,15 @@ __all__ = ["get_stream", "get_video_stream"]
 
 
 async def _run_yt_dlp(url: str, format_selector: str, cookies: str | None):
-    base_cmd = [
+    cmd = [
         "yt-dlp",
-        "-v",
-        "--js-runtimes", "node",
-        "--remote-components", "ejs:github",
+        "--quiet",
+        "--no-warnings",
+        "--no-progress",
+        "--no-call-home",
+        "--no-check-certificates",
+        "--no-cache-dir",
+        "--extractor-args", "youtube:player_js_variant=main",
         "--no-playlist",
         "-f", format_selector,
         "-g",
@@ -17,41 +21,26 @@ async def _run_yt_dlp(url: str, format_selector: str, cookies: str | None):
     ]
 
     if cookies and os.path.exists(cookies):
-        base_cmd.insert(1, "--cookies")
-        base_cmd.insert(2, cookies)
+        cmd.insert(1, "--cookies")
+        cmd.insert(2, cookies)
 
-    # 🔁 Fallback strategies
-    strategies = [
-        [],  # normal
-        ["--extractor-args", "youtube:player_js_variant=main"],
-        ["--extractor-args", "youtube:player_client=android"],
-    ]
+    try:
+        process = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
 
-    for extra in strategies:
-        cmd = base_cmd.copy()
-
-        if extra:
-            insert_index = cmd.index("-f")
-            for i, arg in enumerate(extra):
-                cmd.insert(insert_index + i, arg)
-
-        try:
-            process = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-
-            stdout, _ = await asyncio.wait_for(
-                process.communicate(),
-                timeout=40,
-            )
-
-        except Exception:
-            continue
+        stdout, _ = await asyncio.wait_for(
+            process.communicate(),
+            timeout=12,
+        )
 
         if process.returncode == 0 and stdout:
             return stdout.decode().strip().split("\n")[0]
+
+    except Exception:
+        return None
 
     return None
 
