@@ -4,57 +4,48 @@ import os
 __all__ = ["get_stream", "get_video_stream"]
 
 
-async def _run_yt_dlp(url: str, format_selector: str, cookies: str | None):
-    strategies = [
-        ["--extractor-args", "youtube:player_client=tvhtml5"],
-        ["--extractor-args", "youtube:player_js_variant=main"],
+async def _run_yt_dlp(url: str, format_selector: str, cookies: str):
+    if not cookies or not os.path.exists(cookies):
+        raise ValueError("Cookies File is required and must exist")
+
+    cmd = [
+        "yt-dlp",
+        "--quiet",
+        "--no-warnings",
+        "--no-progress",
+        "--no-call-home",
+        "--no-check-certificates",
+        "--no-cache-dir",
+        "--cookies", cookies,
+        "--extractor-args", "youtube:player_js_variant=main",
+        "--no-playlist",
+        "-f", format_selector,
+        "-g",
+        url,
     ]
 
-    for extra in strategies:
-        cmd = [
-            "yt-dlp",
-            "--quiet",
-            "--no-warnings",
-            "--no-progress",
-            "--no-call-home",
-            "--no-check-certificates",
-            "--no-cache-dir",
-            "--no-playlist",
-            "-f", format_selector,
-            "-g",
-            url,
-        ]
+    try:
+        process = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
 
-        insert_index = cmd.index("-f")
-        for i, arg in enumerate(extra):
-            cmd.insert(insert_index + i, arg)
+        stdout, _ = await asyncio.wait_for(
+            process.communicate(),
+            timeout=15,
+        )
 
-        if cookies and os.path.exists(cookies):
-            cmd.insert(1, "--cookies")
-            cmd.insert(2, cookies)
+        if process.returncode == 0 and stdout:
+            return stdout.decode().strip().split("\n")[0]
 
-        try:
-            process = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-
-            stdout, _ = await asyncio.wait_for(
-                process.communicate(),
-                timeout=12,
-            )
-
-            if process.returncode == 0 and stdout:
-                return stdout.decode().strip().split("\n")[0]
-
-        except Exception:
-            continue
+    except Exception:
+        return None
 
     return None
 
 
-async def get_stream(url: str, cookies: str | None = None):
+async def get_stream(url: str, cookies: str):
     return await _run_yt_dlp(
         url,
         "bestaudio[ext=m4a]/bestaudio/best",
@@ -62,7 +53,7 @@ async def get_stream(url: str, cookies: str | None = None):
     )
 
 
-async def get_video_stream(url: str, cookies: str | None = None):
+async def get_video_stream(url: str, cookies: str):
     return await _run_yt_dlp(
         url,
         "best[ext=mp4]/best",
