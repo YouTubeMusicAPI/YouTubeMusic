@@ -7,6 +7,7 @@ __all__ = ["get_stream", "get_video_stream"]
 async def _run_yt_dlp(url: str, format_selector: str, cookies: str | None):
     cmd = [
         "yt-dlp",
+        "--js-runtimes", "node",
         "--quiet",
         "--no-warnings",
         "--no-progress",
