@@ -1,5 +1,5 @@
 import httpx
-from YouTubeMusic import __version__, __author__
+from .version import __version__, __author__
 
 PYPI_URL = "https://pypi.org/pypi/{}/json"
 
